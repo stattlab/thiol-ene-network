@@ -1,5 +1,4 @@
 # Simulation specific files 
-workspace/ 
 *.gsd 
 
 # Byte-compiled / optimized / DLL files
