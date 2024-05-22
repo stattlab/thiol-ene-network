@@ -1,20 +1,23 @@
 import os
 import json
 
-def progress():
-    reacting_job_ids_dict = {}
-    reacted_job_ids_dict = {}
-    for job_id in os.listdir("./workspace/"):
-        job_path = "./workspace/" + job_id + "/"
-        if os.path.isfile(job_path + "polymerize.gsd"):
-            with open(job_path + "signac_job_document.json") as job_doc:
-                data = json.load(job_doc)
-                rm = data["reacted_monomers"]
-            if rm < 0.9:
-                reacting_job_ids_dict[job_id] = rm
-            else:
-                reacted_job_ids_dict[job_id] = rm
-    with open("./job_progress/reacting_job_ids.json", 'w') as f:
-        json.dump(reacting_job_ids_dict, f)
-    with open("./job_progess/reacted_job_ids.json", 'w') as f:
-        json.dump(reacted_job_ids_dict, f)
+reacting_job_ids_dict = {}
+reacted_job_ids_dict = {}
+for job_id in os.listdir("./workspace/"):
+    job_path = "./workspace/" + job_id + "/"
+    if os.path.isfile(job_path + "polymerize.gsd"):
+        with open(job_path + "signac_job_document.json") as job_doc:
+            data = json.load(job_doc)
+            rm = data["reacted_monomers"]
+        if rm < 0.9:
+            reacting_job_ids_dict[job_id] = rm
+        else:
+            reacted_job_ids_dict[job_id] = rm
+with open("./job_progress/reacting_job_ids.json", 'w') as f:
+    json.dump(reacting_job_ids_dict, f)
+with open("./job_progress/reacted_job_ids.json", 'w') as f:
+    json.dump(reacted_job_ids_dict, f)
+print("reacting")
+print(reacting_job_ids_dict)
+print("reacted")
+print(reacted_job_ids_dict)

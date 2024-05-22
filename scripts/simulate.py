@@ -152,13 +152,9 @@ class Simulator():
 
         try:
             cpu = hoomd.device.GPU()
-            is_cpu = False
         except:
             cpu = hoomd.device.CPU()
-            is_cpu = True
         
-        notice_file = hoomd.devive.NoticeFile(device=cpu)
-
         sim = hoomd.Simulation(device=cpu, seed=1)
 
         if os.path.isfile(self.polymerize_gsd_file) and os.path.getsize(self.polymerize_gsd_file)>1e4:
@@ -249,22 +245,18 @@ class Simulator():
         sim.run(1000)
         
         for i in range(10000):
-            if is_cpu:
-                snapshot = sim.state.cpu_local_snapshot
-            else:
-                snapshot = sim.state.gpu_local_snapshot
-            # with sim.state.cpu_local_snapshot as snapshot:
-            S.propagate_reaction(snapshot,
+            with sim.state.cpu_local_snapshot as snapshot:
+                S.propagate_reaction(snapshot,
                                      r_cut=self.r_cut_reaction,
                                      chain_transfer_probability=self.chain_transfer_probability,
                                      chain_side_reaction_probability=self.chain_side_reaction_probability)
                 
-            dummy_id = len(sim.state.bond_types)-1
-            bonds = snapshot.bonds.group[snapshot.bonds.typeid!=dummy_id] # remove dummy type bond 
-            nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
-            bonded = nids[counts>=2]
-            reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
-            self.job.doc['reacted_monomers'] = len(reacted_monomers)/self.N_monomers
+                dummy_id = len(sim.state.bond_types)-1
+                bonds = snapshot.bonds.group[snapshot.bonds.typeid!=dummy_id] # remove dummy type bond 
+                nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
+                bonded = nids[counts>=2]
+                reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
+                self.job.doc['reacted_monomers'] = len(reacted_monomers)/self.N_monomers
                 
             sim.run(self.polymerize_period)
 
