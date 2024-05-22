@@ -40,44 +40,31 @@ class System:
 
         self.simple_system = True 
 
-    # create initial configuration of system 
     def create_initial_configuration(self,density,crosslinker,N_monomers,
                                      monomer_size=0, extender_size=0):
-        # if the size of extender and size of monomer are specified lengths
-        # not the simple dumbell system
-        # modify extender_size, monomer_size_
+    
         if self.size_extender>0 and self.size_monomer>0:
             self.size_monomer = monomer_size+6 
             self.size_extender = extender_size+1 
             self.simple_system = False 
-        # if simmple system, keep the simple resactant size parameters
         else:
             self.size_monomer = 2 
             self.size_extender = 2
             self.size_crosslinker = 5
             self.simple_system = True
 
-        # N monomers in the system, implies there are 2x the amount of reactive functional groups
         self.N_monomers = int(N_monomers)
         reactive_beads = self.N_monomers*2 
-        
-        # specify amount of thiol groups in the system, such that there are equal amounts of thiols to allyls
-        # calculate the crosslinker_fraction (fraction of thiols from crosslinker) in the system
         crosslinker_fraction = crosslinker/100.
 
-        # number of crosslinkers in the system is the number of reactive groups*crosslinker_fraction/(4)
-        # number of thiol extenders is then the (number of reactive groups - number of reactive groups from crosslinker)/2
         self.N_crosslinker = int(np.round(reactive_beads*crosslinker_fraction/4.))
         self.N_extenders =  int(np.round((reactive_beads-self.N_crosslinker*4)/2.))
 
-        # record the number of each species
         print("N Monomers A = ",self.N_monomers)
         print("N Monomers B = ", self.N_extenders)
         print("N crosslinkers B =", self.N_crosslinker)
-        # record the balance of reactive groups
         print("Balance: 2*%s + 4*%s = 2*%s"%(self.N_extenders,self.N_crosslinker,self.N_monomers))
         
-        # calculate total number of particles in the system
         self.N_particles = self.N_crosslinker*self.size_crosslinker +\
                            self.N_extenders*self.size_extender+\
                            self.N_monomers*self.size_monomer

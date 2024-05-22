@@ -1,7 +1,5 @@
 #!/opt/miniconda3/bin/python
 """Initialize the project's data space."""
-import sys
-print(sys.path)
 import numpy as np
 import signac
 import itertools
@@ -28,15 +26,15 @@ def main():
 
     # change small blob density
     statepoint_grid = {
-        "replica_index": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "replica_index": [0,1,2,3,4,5,6,7,8,9],
         "density": [0.9],
         "temperature":[0.9],
-        "crosslinker_percent":[0.0],#,10.0,25.0,50.0,75.0],
-        "N_monomers":[500], #1000, 1500],
+        "crosslinker_percent":[0.0],#10.0,25.0,50.0,75.0],
+        "N_monomers":[500],
         "monomer_size":[0],
         "extender_size":[0],
-        "radical_percent":[0.50], #1.0, 2.0, 4.0, 8.0, 10.0],
-        "chain_side_reaction_probability": [0], #0.1,0.5,0.6,0.9],
+        "radical_percent":[1.0],
+        "chain_side_reaction_probability": [0],#0.1,0.5,0.6,0.9],
         "chain_transfer_probability": [0.5],
         "thiol_reaction_probability": [0.5],
         "polymerize_period": [100],

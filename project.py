@@ -50,11 +50,6 @@ def polymerize(job):
     sinit.polymerize()
     print("reacted",job.id)
 
-@MyProject.operation
-def progress():
-    from scripts.progress import progress
-    progress()
-
 # Analysis
 
 

@@ -8,6 +8,7 @@ import gsd, gsd.hoomd
 import networkx as nx 
 from collections import defaultdict
 from matplotlib.pyplot import cm
+import json
 
 
 def connected_components(lists):
@@ -41,7 +42,9 @@ def connected_components(lists):
         if node not in seen:
             yield sorted(component(node))
 
-fig, ax = plt.subplots(2,1,sharey=True)
+plt.rcParams["font.family"] = "Avenir"
+fig, ax = plt.subplots(2,1,sharey=False)
+
 
 project = signac.get_project()
 
@@ -49,6 +52,11 @@ color = iter(cm.rainbow(np.linspace(0, 1, 10)))
 
 for job in project: 
     if job.isfile('polymerize.gsd'):
+        # only look at our base cases for now...
+        with open(job.fn('signac_statepoint.json')) as f:
+            statepoint = json.load(f)
+            if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
+                continue
         try:
             trajectory = gsd.hoomd.open(job.fn('polymerize.gsd'))
             frame = trajectory[0]
@@ -82,11 +90,13 @@ for job in project:
                 largest_molecule.append(np.max(strand_lengths))
                 average_M.append(np.average(strand_lengths))
 
-
-            ax[0].plot(conversion,average_M,c=c)
             conversion=np.array(conversion)
             ax[0].plot(conversion,2.0/(1.0-conversion),c='black')
-            ax[1].plot(frame_number,average_M,c=c)
+            ax[0].plot(conversion,average_M, "o", c=c)
+            
+            ax[1].plot(frame_number,conversion,c=c)
+            ax[0].set_ylim([1, 4.25])
+            ax[1].set_ylim([0, 1])
             print(job.id, "done", len(trajectory))
 
         except:
