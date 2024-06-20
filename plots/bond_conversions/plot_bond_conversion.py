@@ -64,6 +64,7 @@ for job in project:
             bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id] # dummy type bond 
             nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
             all_strands = connected_components(bonds)
+            
             n_molecules = 0
             for strand in all_strands:
                     n_molecules +=1
@@ -79,6 +80,7 @@ for job in project:
 
                 f_bonded = len(counts[counts==2])/frame.particles.N
                 all_strands = connected_components(bonds)
+                
                 strand_lengths = []
                 n_molecules = 0
                 for strand in all_strands:
@@ -89,15 +91,18 @@ for job in project:
                 conversion.append(extent_of_reaction)
                 largest_molecule.append(np.max(strand_lengths))
                 average_M.append(np.average(strand_lengths))
-
+            
             conversion=np.array(conversion)
-            ax[0].plot(conversion,2.0/(1.0-conversion),c='black')
+            
+            ### carother as 3/(1-p) b/c one monomer is of size 4 and the other is of size 2
+            ax[0].plot(conversion,3.0/(1.0-conversion),c='black')
             ax[0].plot(conversion,average_M, "o", c=c)
             
             ax[1].plot(frame_number,conversion,c=c)
-            ax[0].set_ylim([1, 4.25])
+            #ax[0].set_ylim([1, 10])
             ax[1].set_ylim([0, 1])
             print(job.id, "done", len(trajectory))
+            
 
         except:
             print("file exist but 0 size", job.id)

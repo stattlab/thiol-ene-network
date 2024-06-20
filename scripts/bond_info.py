@@ -115,25 +115,27 @@ for job in project:
             
             
             for atom, neighbors in all_bonds.items():
-                bond_histogram[len(neighbors)] += 1
+                bond_histogram[int(len(neighbors))] += 1
                 
                 if len(neighbors) == 2:
                     neighbor_types = [type_map[i] for i in neighbors]
                     # if there are two neighbors check if it's alternating 
                     if not ((0 in neighbor_types or 2 in neighbor_types or 4 in neighbor_types) and (1 in neighbor_types or 3 in neighbor_types or 5 in neighbor_types)):
-                        alternating_q[atom] = neighbor_types
+                        alternating_q[int(atom)] = neighbor_types
                         
                 if len(neighbors) > 2:
-                    multibonded_atoms[len(neighbors)][atom] = neighbors
+                    multibonded_atoms[int(len(neighbors))][atom] = neighbors
             # record in overall trajectory lists
             trajectory_bond_histograms[i] = bond_histogram
-            trajectory_alternating_q[i] = alternating_q
-            trajectory_radical_numbers[i] = radical_number
+            #trajectory_alternating_q[i] = alternating_q
+            trajectory_radical_numbers[i] = (radical_number, list(type_map).count(2), list(type_map).count(3))
 
         # write into files
-        with open(job.fn('bond_hitsograms.json'), "w") as f:
+        with open(job.fn('bond_hitsograms.json'), "w") as f :
             json.dump(trajectory_bond_histograms, f)
-        with open(job.fn('alternating_q.json'), "w") as f:
-            json.dump(trajectory_alternating_q, f)
+        #print(trajectory_alternating_q)
+        #with open(job.fn('alternating_q.json'), "w") as f:
+        #    json.dump(trajectory_alternating_q, f)
         with open(job.fn('radical_numbers.json'), "w") as f:
             json.dump(trajectory_radical_numbers, f)
+        print(list(trajectory_radical_numbers.values())[-1])

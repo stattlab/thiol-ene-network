@@ -29,7 +29,7 @@ def main():
         "replica_index": [0,1,2,3,4,5,6,7,8,9],
         "density": [0.9],
         "temperature":[0.9],
-        "crosslinker_percent":[0.0],#10.0,25.0,50.0,75.0],
+        "crosslinker_percent":[50.0],#10.0,25.0,50.0,75.0],
         "N_monomers":[500],
         "monomer_size":[0],
         "extender_size":[0],
