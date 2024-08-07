@@ -55,8 +55,8 @@ for job in project:
         # only look at our base cases for now...
         with open(job.fn('signac_statepoint.json')) as f:
             statepoint = json.load(f)
-            # if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
-            #     continue
+            if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
+                continue
         try:
             trajectory = gsd.hoomd.open(job.fn('polymerize.gsd'))
             frame = trajectory[0]
