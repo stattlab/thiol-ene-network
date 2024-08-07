@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm
 import gsd, gsd.hoomd 
-import networkx as nx 
+# import networkx as nx 
 from collections import defaultdict
 from matplotlib.pyplot import cm
 import json
@@ -55,8 +55,8 @@ for job in project:
         # only look at our base cases for now...
         with open(job.fn('signac_statepoint.json')) as f:
             statepoint = json.load(f)
-            if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
-                continue
+            # if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
+            #     continue
         try:
             trajectory = gsd.hoomd.open(job.fn('polymerize.gsd'))
             frame = trajectory[0]
@@ -95,17 +95,23 @@ for job in project:
             conversion=np.array(conversion)
             
             ### carother as 3/(1-p) b/c one monomer is of size 4 and the other is of size 2
-            ax[0].plot(conversion,3.0/(1.0-conversion),c='black')
-            ax[0].plot(conversion,average_M, "o", c=c)
+            ax[0].plot(conversion,3.0/(1.0-conversion),c='black',label="Carother's")
+            ax[0].plot(conversion,average_M, "o", c=c, label="Simulation Data")
+            ax[0].set_xlabel("Conversion")
+            ax[0].set_ylabel("Average M")
+            ax[0].legend(loc='best',columnspacing=0.1,frameon=False,
+                    labelspacing=0.1,handletextpad=0.5,handlelength=0.6,draggable=True)
             
             ax[1].plot(frame_number,conversion,c=c)
             #ax[0].set_ylim([1, 10])
             ax[1].set_ylim([0, 1])
+            ax[1].set_xlabel("Frame number")
+            ax[1].set_ylabel("Conversion")
             print(job.id, "done", len(trajectory))
             
 
         except:
             print("file exist but 0 size", job.id)
              
-
+plt.tight_layout()
 plt.show()
