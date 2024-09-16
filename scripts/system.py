@@ -324,6 +324,8 @@ class System:
             frame.angles.typeid = np.hstack((len(angles)*[0],len(dummy_angles)*[self.dummy_type_angle]))
             frame.angles.N = len(angles)+len(dummy_angles)
         return frame 
+    
+    
     '''
     "turn on the light"
     args: self, snapchot, %photonitiator (radicals)
@@ -331,14 +333,33 @@ class System:
     '''
     def flip_radicals_on(self,snapshot,radical_number_percent):
         # TODO: do we need to ensure only one thiol per monomer is selected or can both ends be reactive?
+        '''
+        # for only chain growth: starting with carbon radicals
         
+        ids = np.arange(snapshot.particles.N) 
+        bond_ids,bond_counts = np.unique((np.concatenate((snapshot.bonds.group[snapshot.bonds.typeid==2], snapshot.bonds.group[snapshot.bonds.typeid==4]),axis=0)).flatten(),return_counts=True)
+        two_bond_ids = bond_ids[bond_counts==2]
+        all_enes =  ids[snapshot.particles.typeid==self.ene_type]
+        internal_enes = np.intersect1d(two_bond_ids,all_enes)
+        n_radicals = int(np.round(radical_number_percent*len(internal_enes)/100.0))
+        radicals = np.random.choice(internal_enes, n_radicals, replace=False)
+        snapshot.particles.typeid[radicals] = self.radical_carbon
+        for b in radicals:
+            snapshot.bonds.typeid[snapshot.bonds.group[:,0]==b]=4
+            snapshot.bonds.typeid[snapshot.bonds.group[:,1]==b]=4
+        
+        # normal
         # turn some A into radical_thiol
+        
+        '''
         ids = np.arange(snapshot.particles.N) 
         all_thiols =  ids[snapshot.particles.typeid==self.thiol_type]
         n_radicals = int(np.round(radical_number_percent*len(all_thiols)/100.0))
         radicals = np.random.choice(all_thiols, n_radicals, replace=False)
-
         snapshot.particles.typeid[radicals] = self.radical_thiol
+        
+        
+        
 
 
     '''
@@ -364,10 +385,9 @@ class System:
 
             # count and find all unreacted c=c
             bond_ids,bond_counts = np.unique((snapshot.bonds.group[snapshot.bonds.typeid==2]).flatten(),return_counts=True)
-
-
             # find all particles with only 1 non-H covalent bond
             only_one_bond_ids = bond_ids[bond_counts==1]
+            
             # the ene groups that are candidates for rxn only have one bond
             polymer_candidates_ids = np.intersect1d(only_one_bond_ids,polymer_ids)
             polymer_candidates_positions = positions[polymer_candidates_ids]
@@ -384,17 +404,6 @@ class System:
                 actual_ids_polymers = polymer_candidates_ids[all_pairs[:,0]]
                 actual_ids_radicals = radicals_ids[all_pairs[:,1]]
                 actual_ids = np.vstack((actual_ids_radicals,actual_ids_polymers)).T
-                
-                '''
-                ### code to delete
-                total_radicals = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-                all_rad_ids = list(ids[particle_ids==self.radical_carbon]) + list(ids[particle_ids==self.radical_thiol])
-                beep = [(i, particle_ids[i]) for i in all_rad_ids]
-                a_gone_thru = []
-                ### delete this:
-                chosen_flips = []
-                flipping_rads = []
-                '''
 
                 # for each thiol radical a, there is a chance to react
                 for a in np.unique(actual_ids_radicals):
@@ -413,25 +422,18 @@ class System:
                     # roll to react
                     react = np.random.uniform()
 
-                    '''
-                    #a_gone_thru.append(a)'''
-
                     # if reacts
                     if len(neigh_a)>0 and react <= self.thiol_reaction_probability:  
                         # chose a random terminal ene neighbor 
                         b = np.random.choice(neigh_a)  
-                        '''
-                        ### delete this:
-                        chosen_flips.append(b)
-                        '''
 
-                        # find b and c it's bonded to c=c-c-|
+                        # find b and c it's bonded to b=c-|
                         bonds_on_b_1 = snapshot.bonds.group[snapshot.bonds.group[:,0]==b]
                         bonds_on_b_2 = snapshot.bonds.group[snapshot.bonds.group[:,1]==b]
                         bonds_on_b = np.unique(np.vstack((bonds_on_b_1,bonds_on_b_2)).flatten())
                         bonds_on_b = bonds_on_b[bonds_on_b!=b]
 
-                        # find the bonds on a it's bonded to
+                        # find a and the atoms it's bonded to
                         bonds_on_a_1 = snapshot.bonds.group[snapshot.bonds.group[:,0]==a]
                         bonds_on_a_2 = snapshot.bonds.group[snapshot.bonds.group[:,1]==a]
                         bonds_on_a = np.unique(np.vstack((bonds_on_a_1,bonds_on_a_2)).flatten())
@@ -468,28 +470,7 @@ class System:
                         particle_ids[bonds_on_b[0]]=self.radical_carbon
                         #flipping_rads.append(bonds_on_b[0])
                         actual_ids = np.vstack([i if i[1]!=b else [None,None] for i in actual_ids])
-                        '''
-                        # remove flipped radical from polymer candidate
-                        
-                        total_radicals_2 = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-
-                        if total_radicals_2 < total_radicals:
-                            with open("./errors2.txt", "a") as f:
-                                f.write("thiol: " + str(a) + " ene: " + str(b)+ "\n")
-                                f.write(str(chosen_flips)+ "\n")
-                                f.write(str(flipping_rads)+ "\n")
-                                f.write(str(a_gone_thru)+ "\n")
-                                f.write(str(beep)+ "\n")
-                                f.write(str([(i,particle_ids[i]) for i in all_rad_ids])+ "\n")
-
-                            print("thiol: " + str(a) + " ene: " + str(b))
-                            print(chosen_flips)
-                            print(a_gone_thru)
-                            print(beep)
-                            print([(i,particle_ids[i]) for i in all_rad_ids])
-                    else:
-                        chosen_flips.append(None)
-                        '''
+                    
     
     '''
     args: self, snapshot, box, positions, paricle_ids, ids, idx
@@ -500,25 +481,19 @@ class System:
     
         # transfer carbon radical to new thiol 
         if self.chain_transfer_probability>0:
+            # get carbon radicals
             radicals_positions = positions[particle_ids==self.radical_carbon]
             radicals_ids = ids[particle_ids==self.radical_carbon]
-            polymer_ids = ids[particle_ids==self.thiol_type]  # all Thiols
-            
-            '''
-            ### code to delete
-            total_radicals = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-            all_rad_ids = list(ids[particle_ids==self.radical_carbon]) + list(ids[particle_ids==self.radical_thiol])
-            beep = [(i, particle_ids[i]) for i in all_rad_ids]
-            '''
 
+            # find thiols that are candidates to move the radical to
+            polymer_ids = ids[particle_ids==self.thiol_type]  # all Thiols
             bond_ids,bond_counts = np.unique((snapshot.bonds.group).flatten(),return_counts=True)
             only_one_bond_ids = bond_ids[bond_counts==1]
             polymer_candidates_ids = np.intersect1d(only_one_bond_ids,polymer_ids)
             polymer_candidates_positions = positions[polymer_candidates_ids]
-            
 
             if len(radicals_ids)>0:
-
+                # find the local candidates for each radical 
                 aq = freud.locality.AABBQuery(box, radicals_positions)
                 nlist = aq.query(polymer_candidates_positions, {'r_max': self.rcut_neigh, 'exclude_ii':True}).toNeighborList()
                 all_pairs = nlist[:]
@@ -526,12 +501,8 @@ class System:
                 actual_ids_polymers = polymer_candidates_ids[all_pairs[:,0]]
                 actual_ids_radicals = radicals_ids[all_pairs[:,1]]
                 actual_ids = np.vstack((actual_ids_radicals,actual_ids_polymers)).T  
-                '''
-                chosen_flips = []
-                a_gone_thru = []
-                '''
+
                 for a in np.unique(actual_ids_radicals):  # chain transfer 
-                    '''a_gone_thru.append(a)'''
                     
                     neigh_a = actual_ids[actual_ids[:,0]==a][:,1]
                     neigh_a = neigh_a.astype(int)
@@ -540,56 +511,57 @@ class System:
                     neigh_a = neigh_a[(neigh_a_types!=self.radical_thiol)|(neigh_a_types!=self.radical_carbon)]
                     bond_ids,bond_counts = np.unique((snapshot.bonds.group).flatten(),return_counts=True)
                     neigh_a = neigh_a[bond_counts[neigh_a]==1]
-
+                    # roll to transfer
                     transfer = np.random.uniform()
+
+                    # if it transfers
                     if len(neigh_a)>0 and transfer <= self.chain_transfer_probability:  
                         b = np.random.choice(neigh_a)
-                        '''  
-                        chosen_flips.append(b)
-                        '''
                         snapshot.particles.typeid[idx[a]]=self.carbon  # carbon is no longer reactive
                         snapshot.particles.typeid[idx[b]]=self.radical_thiol  # chain transfer 
 
+                        # transfer the radical
                         particle_ids[a]=self.carbon
                         particle_ids[b]=self.radical_thiol
+
+                        # remove the radical thiol as a possible candidate
                         actual_ids = np.vstack([i if i[1]!=b else [None,None] for i in actual_ids])
-                    '''
-                    else:
-                        chosen_flips.append(None)
-                    total_radicals_2 = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-                    
-                    if total_radicals_2 < total_radicals:
-                        with open("./errors.txt", "a") as f:
-                            f.write("ene: " + str(a) + " thiol: " + str(b)+ "\n")
-                            f.write(str(chosen_flips)+ "\n")
-                            f.write(str(a_gone_thru)+ "\n")
-                            f.write(str(beep)+ "\n")
-                            f.write(str([(i,particle_ids[i]) for i in all_rad_ids])+ "\n")
-                        print("ene: " + str(a) + " thiol: " + str(b))
-                        print(beep)
-                        print(chosen_flips)
-                        print([(i, particle_ids[i]) for i in all_rad_ids])
-                    '''
+
     '''
+    args: self, snapshot, box, positions, paricle_ids, ids, idx
+    chain growth of ene carbons: a ene radical propogates from carbon to carbon double bond
+    ene radical (type 2) adds to terminal ene (type 1) that has only one bond
+    r-o-o*-r' + o=o-r'' -> r-o-o-r'
+                               |
+                               o-o*-r''
+    r-5-4-r' + 2-2-r''  -> r-5-5-r'
+                               |
+                               5-4-r''
     '''
     def chain_growth(self,snapshot,box,positions,particle_ids,ids,idx):
 
-         # chain side reaction radical carbon with ene reaction                
+        # chain side reaction radical carbon with ene reaction                
         if self.chain_side_reaction_probability>0:
+            # find all radical carbons and get their ids
             radicals_positions = positions[particle_ids==self.radical_carbon]
             radicals_ids = ids[particle_ids==self.radical_carbon]
+            '''
+            if:
+            remove any candidates that are on the same monomer
+            '''
+
+            # find reaction candidates
+            ## find all ids of enes
             polymer_ids = ids[particle_ids==self.ene_type]   # all carbon/enes
-
-
-            # bond type = 2 unreacted ene = carbon double bond. 
-            # bond type = 4 reacted ene =  carbon single bond - can't react in chain growth 
+            ## find the enes that have only one bond (which is a double bond)
             bond_ids,bond_counts = np.unique((snapshot.bonds.group[snapshot.bonds.typeid==2]).flatten(),return_counts=True)
             only_one_bond_ids = bond_ids[bond_counts==1]
             polymer_candidates_ids = np.intersect1d(only_one_bond_ids,polymer_ids)
             polymer_candidates_positions = positions[polymer_candidates_ids]
 
+            # if there are carbon radicals to react
             if len(radicals_ids)>0:
-
+                # find and store the local candidates around each radical
                 aq = freud.locality.AABBQuery(box, radicals_positions)
                 nlist = aq.query(polymer_candidates_positions, {'r_max': self.rcut_neigh, 'exclude_ii':True}).toNeighborList()
                 all_pairs = nlist[:]
@@ -597,9 +569,9 @@ class System:
                 actual_ids_polymers = polymer_candidates_ids[all_pairs[:,0]]
                 actual_ids_radicals = radicals_ids[all_pairs[:,1]]
                 actual_ids = np.vstack((actual_ids_radicals,actual_ids_polymers)).T  
-
+                # for each carbon radical a
                 for a in np.unique(actual_ids_radicals):  # radical carbon -ene bond formation 
-                    
+                    # take the neighbor candidates around the radicals
                     neigh_a = actual_ids[actual_ids[:,0]==a][:,1]
                     neigh_a = neigh_a.astype(int)
                     neigh_a_types = particle_ids[neigh_a]
@@ -608,20 +580,27 @@ class System:
                     bond_ids,bond_counts = np.unique((snapshot.bonds.group).flatten(),return_counts=True)
                     neigh_a = neigh_a[bond_counts[neigh_a]==1]
 
+                    # roll to react
                     react = np.random.uniform()
-                    if len(neigh_a)>0 and react <= self.chain_side_reaction_probability:  
+                    # if reacts
+                    if len(neigh_a)>0 and react <= self.chain_side_reaction_probability: 
+                        # choose one of the reactive candidates b
                         b = np.random.choice(neigh_a)  
                     
+                        # find b and the c it's bonded to b=c-|
                         bonds_on_b_1 = snapshot.bonds.group[snapshot.bonds.group[:,0]==b]
                         bonds_on_b_2 = snapshot.bonds.group[snapshot.bonds.group[:,1]==b]
                         bonds_on_b = np.unique(np.vstack((bonds_on_b_1,bonds_on_b_2)).flatten())
                         bonds_on_b = bonds_on_b[bonds_on_b!=b]
 
+                        # find a and the atoms it's bonded to 
+                        ''' this search maybe unnecessary for this rxn?'''
                         bonds_on_a_1 = snapshot.bonds.group[snapshot.bonds.group[:,0]==a]
                         bonds_on_a_2 = snapshot.bonds.group[snapshot.bonds.group[:,1]==a]
                         bonds_on_a = np.unique(np.vstack((bonds_on_a_1,bonds_on_a_2)).flatten())
                         bonds_on_a = bonds_on_a[bonds_on_a!=a]
                         
+                        # if not simple_system then include angles
                         if self.simple_system == False: 
                             U = np.where(snapshot.angles.typeid==self.dummy_type_angle)[0][0]
                             
@@ -633,22 +612,29 @@ class System:
 
                         
                         # flip types of bonds 
+                        ''' unnecessary?
                         snapshot.bonds.typeid[snapshot.bonds.group[:,0]==a]=4
                         snapshot.bonds.typeid[snapshot.bonds.group[:,1]==a]=4
+                        '''
                         snapshot.bonds.typeid[snapshot.bonds.group[:,0]==b]=4
                         snapshot.bonds.typeid[snapshot.bonds.group[:,1]==b]=4
+
 
                         U = np.where(snapshot.bonds.typeid==self.dummy_type_bond)[0][0]
                         snapshot.bonds.group[U]=[a,b]  # propagation 
                         snapshot.bonds.typeid[U]=1
-                    
-                        snapshot.particles.typeid[idx[a]]=self.ene_type  # flip back to ene
-                        snapshot.particles.typeid[idx[b]]=self.ene_type   
+
+                        # flip to non-reactive carbons
+                        snapshot.particles.typeid[idx[a]]=self.carbon 
+                        snapshot.particles.typeid[idx[b]]=self.carbon   
                         snapshot.particles.typeid[idx[bonds_on_b[0]]]=self.radical_carbon   # turn the B into a radical 
                         
-                        particle_ids[a]=self.ene_type
-                        particle_ids[b]=self.ene_type
+                        particle_ids[a]=self.carbon
+                        particle_ids[b]=self.carbon
                         particle_ids[bonds_on_b[0]]=self.radical_carbon
+
+                        # remove the reacted ones as candidate possibilities from the other radicals
+                        actual_ids = np.vstack([i if i[1]!=b else [None,None] for i in actual_ids])
     '''
     '''
     def termination_reactions(self,snapshot,box,positions,particle_ids,ids,idx):    
@@ -745,31 +731,11 @@ class System:
         positions = snapshot.particles.position[idx]
 
         init_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-        #print("radical carbons: " + str(ids[particle_ids==self.radical_carbon]))
-        #print("radical sulfurs: " + str(ids[particle_ids==self.radical_thiol]))
+
         # radical radical_thiol with Ene = Propagation/bond formation step 
         rc_0 = ids[particle_ids==self.radical_carbon]
         rt_0 = ids[particle_ids==self.radical_thiol]
         self.bond_formation(snapshot,box,positions,particle_ids,ids,idx)
-
-        bf_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-        rc_bf = ids[particle_ids==self.radical_carbon]
-        rt_bf = ids[particle_ids==self.radical_thiol]
-
-        if (bf_radical_num < init_radical_num):
-            with open("./errors.txt", "a") as f:
-                f.write("bond_formation error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(bf_radical_num)+ "\n")
-                f.write("rc b4: " + str(rc_0) + "rt b4: " + str(rt_0)+ "\n")
-                f.write("rc : " + str(rc_bf) + "rt : " + str(rt_bf) + "\n")
-                f.write("bf"+ "\n")
-                f.write("bf"+ "\n")
-                f.write("bf"+ "\n")
-            print("bond_formation error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(bf_radical_num))
-            print("rc b4: " + str(rc_0) + "rt b4: " + str(rt_0))
-            print("rc : " + str(rc_bf) + "rt : " + str(rt_bf))
-            print("bf")
-            print("bf")
-            print("bf")
         
         # reaction radical_carbon with Thiol  - chain transfer step
         self.chain_transfer(snapshot,box,positions,particle_ids,ids,idx)
@@ -777,21 +743,6 @@ class System:
 
         rc_ct = ids[particle_ids==self.radical_carbon]
         rt_ct = ids[particle_ids==self.radical_thiol]
-        if (ct_radical_num < bf_radical_num):
-            with open("./errors2.txt", "a") as f:
-                f.write("chain_transfer error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(ct_radical_num)+ "\n")
-                f.write("rc b4 : " + str(rc_bf) + "rt b4 : " + str(rt_bf)+ "\n")
-                f.write("rc : " + str(rc_ct) + "rt : " + str(rt_ct)+ "\n")
-                f.write("ct"+ "\n")
-                f.write("ct"+ "\n")
-                f.write("ct"+ "\n")
-
-            print("chain_transfer error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(ct_radical_num))
-            print("rc b4 : " + str(rc_bf) + "rt b4 : " + str(rt_bf))
-            print("rc : " + str(rc_ct) + "rt : " + str(rt_ct))
-            print("ct")
-            print("ct")
-            print("ct")
     
         #  competing chain growth radical carbond with ene reaction 
         self.chain_growth(snapshot,box,positions,particle_ids,ids,idx)

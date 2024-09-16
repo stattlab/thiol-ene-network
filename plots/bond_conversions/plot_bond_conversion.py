@@ -9,6 +9,7 @@ import networkx as nx
 from collections import defaultdict
 from matplotlib.pyplot import cm
 import json
+from collections import Counter
 
 
 def connected_components(lists):
@@ -55,8 +56,14 @@ for job in project:
         # only look at our base cases for now...
         with open(job.fn('signac_statepoint.json')) as f:
             statepoint = json.load(f)
-            if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
+            '''
+            if not (statepoint["crosslinker_percent"]==50.0 and statepoint["chain_side_reaction_probability"]==0):
                 continue
+            '''
+            
+            if (statepoint["chain_side_reaction_probability"]==0):
+                continue
+            
         try:
             trajectory = gsd.hoomd.open(job.fn('polymerize.gsd'))
             frame = trajectory[0]
@@ -67,6 +74,8 @@ for job in project:
             
             n_molecules = 0
             for strand in all_strands:
+                    if len(strand) == 2:
+                        continue
                     n_molecules +=1
             N_0 = n_molecules
             c = next(color)
@@ -84,25 +93,49 @@ for job in project:
                 strand_lengths = []
                 n_molecules = 0
                 for strand in all_strands:
+                    if len(strand) == 2:
+                        continue
                     strand_lengths.append(len(strand))
                     n_molecules +=1
+                
                 extent_of_reaction = (N_0 - n_molecules)/N_0
                 frame_number.append(i)
                 conversion.append(extent_of_reaction)
                 largest_molecule.append(np.max(strand_lengths))
                 average_M.append(np.average(strand_lengths))
-            
+            #counts = dict()
+            #for i in strand_lengths:
+            #    counts[i] = counts.get(i, 0) + 1
+            #with open(job.fn('strand_length_histogram.json'), "w") as f :
+            #    json.dump(counts, f)
             conversion=np.array(conversion)
+            bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+            types = ['Thiol','Ene_C','RSulfur','RCarbon']
+            non_reacted_atoms = [types[i] for i in frame.particles.typeid if i<4]
+            counts = dict()
+            for i in strand_lengths:
+                counts[i] = counts.get(i, 0) + 1
+            with open(job.fn('./json/molecules_histogram.json'), "w") as f :
+                json.dump(counts, f)
             
+            counts2 = {'Thiol':0,'Ene_C':0,'RSulfur':0,'RCarbon':0}
+            for i in non_reacted_atoms:
+                counts2[i] = counts2.get(i, 0) + 1
+            with open(job.fn('./json/non_reacted_histogram.json'), "w") as f :
+                json.dump(counts2, f)
+            #M0 = (500.*4+250*2+125*5)/(500+250+125)
+            M0 = 4
+            #print(M0)
             ### carother as 3/(1-p) b/c one monomer is of size 4 and the other is of size 2
-            ax[0].plot(conversion,3.0/(1.0-conversion),c='black')
+            ax[0].plot(conversion,(M0)/(1.0-conversion),c='black')
             ax[0].plot(conversion,average_M, "o", c=c)
             
             ax[1].plot(frame_number,conversion,c=c)
-            #ax[0].set_ylim([1, 10])
+            # ax[0].set_xlim([0, 0.5])
+            # ax[0].set_ylim([0, 10])
             ax[1].set_ylim([0, 1])
+            ax[1].set_xlim([0, 100])
             print(job.id, "done", len(trajectory))
-            
 
         except:
             print("file exist but 0 size", job.id)

@@ -10,9 +10,6 @@ import networkx as nx
 from collections import defaultdict
 #from matplotlib.pyplot import cm
 
-"""
-
-"""
 
 """
 frame.bonds.group gives a np.array that is of form [[a,b],[c,d],[e,f],[a,g],...] 
@@ -83,7 +80,12 @@ for job in project:
         # only look at our base cases for now...
         with open(job.fn('signac_statepoint.json')) as f:
             statepoint = json.load(f)
-            if not (statepoint["crosslinker_percent"]==0.0 and statepoint["chain_side_reaction_probability"]==0):
+            '''
+            if not (statepoint["crosslinker_percent"]==50.0 and statepoint["chain_side_reaction_probability"]==0):
+                continue
+            '''
+            
+            if (statepoint["chain_side_reaction_probability"]==0):
                 continue
 
         print(job)
@@ -116,7 +118,7 @@ for job in project:
             
             for atom, neighbors in all_bonds.items():
                 bond_histogram[int(len(neighbors))] += 1
-                
+           d     
                 if len(neighbors) == 2:
                     neighbor_types = [type_map[i] for i in neighbors]
                     # if there are two neighbors check if it's alternating 
@@ -131,11 +133,14 @@ for job in project:
             trajectory_radical_numbers[i] = (radical_number, list(type_map).count(2), list(type_map).count(3))
 
         # write into files
-        with open(job.fn('bond_hitsograms.json'), "w") as f :
+        json_dir = "./workspace/" + str(job) + "/json/"
+        if not os.path.isdir(json_dir):
+            os.mkdir(json_dir)
+        with open(json_dir + 'bond_hitsograms.json', "w") as f :
             json.dump(trajectory_bond_histograms, f)
         #print(trajectory_alternating_q)
         #with open(job.fn('alternating_q.json'), "w") as f:
         #    json.dump(trajectory_alternating_q, f)
-        with open(job.fn('radical_numbers.json'), "w") as f:
+        with open(json_dir + 'radical_numbers.json', "w") as f:
             json.dump(trajectory_radical_numbers, f)
         print(list(trajectory_radical_numbers.values())[-1])

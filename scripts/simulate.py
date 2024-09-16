@@ -255,8 +255,14 @@ class Simulator():
                 bonds = snapshot.bonds.group[snapshot.bonds.typeid!=dummy_id] # remove dummy type bond 
                 nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
                 bonded = nids[counts>=2]
-                reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
-                self.job.doc['reacted_monomers'] = len(reacted_monomers)/(self.N_monomers*2)
+                #reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
+
+                ids = np.arange(len(snapshot.particles.tag))
+                idx = snapshot.particles.rtag[ids]
+                particle_ids = snapshot.particles.typeid[idx]
+
+                unreacted_enes = len(ids[particle_ids==1])/2
+                self.job.doc['reacted_monomers'] = 1 - unreacted_enes/(self.N_monomers*2)
                 
             #sim.run(10)
             sim.run(self.polymerize_period)
