@@ -355,6 +355,8 @@ class System:
         return frame 
     
     
+    
+    
     '''
     "turn on the light"
     args: self, snapchot, %photonitiator (radicals)
@@ -414,6 +416,7 @@ class System:
             bond_ids,bond_counts = np.unique((snapshot.bonds.group[snapshot.bonds.typeid==2]).flatten(),return_counts=True)
             # find all particles with only 1 non-H covalent bond
             only_one_bond_ids = bond_ids[bond_counts==1]
+            
             
             # the ene groups that are candidates for rxn only have one bond
             polymer_candidates_ids = np.intersect1d(only_one_bond_ids,polymer_ids)
