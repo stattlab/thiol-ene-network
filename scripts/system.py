@@ -10,7 +10,7 @@ class System:
         self.particles_types = ['Thiol','Ene_C','RSulfur','RCarbon', 'Sulfur', 'Carbon','C','D','Dummy']
         ## ---------------[  0  , 1  ,     2     ,  3 ,     4     ,   5]
         self.bond_types = ['-SH','New','CC_Double','-S-','CC_Single','Dummy']
-        self.angle_types = ['A','B','C','Dummy']
+        self.angle_types = ['PE','Dummy']
 
         # needs to be the correct integer position of 'dummy' in the arrays above 
         self.dummy_type = len(self.particles_types)-1
@@ -41,28 +41,31 @@ class System:
         self.chain_side_reaction_probability = 0.0
         self.rcut_neigh = 0
 
-        self.simple_system = True
+        self.FJ_system = False
+        self.unspaced_system = True
 
     '''
     create the initial configuration in the box
     args: the system, density, amount of crosslinker, amount of ene monomers, monomer size, and extender size
     returns: initial gsd frame
     two types of systems
-    1. Simple:
-    2. Non-simple:
+    1. Spaced:
+    2. Unspaced:
+
+    Systems can also be FJ or not, determining whether angles are present
     '''
     def create_initial_configuration(self,density,crosslinker,N_monomers, monomer_size=0, extender_size=0):
-        # if the system is not the simple system, add extenders and change the monomer size
+        # if the system is not the unspaced system, add extenders and change the monomer size
         if self.size_extender>0 and self.size_monomer>0:
-            self.size_monomer = monomer_size+8 
-            self.size_extender = extender_size+1 
-            self.simple_system = False
+            self.size_monomer = monomer_size+8
+            self.size_extender = extender_size+1
+            self.unspaced_system = False
         # otherwise use the dumbell system
         else:
             self.size_monomer = 4 
             self.size_extender = 2
             self.size_crosslinker = 5
-            self.simple_system = True
+            self.unspaced_system = True
         
         ### in this system, equal-stoichiometric ene-thiol
         # define the number of monomers, reactive beads, and the crosslinker fraction
@@ -85,8 +88,9 @@ class System:
         print("Box length = %1.2f"%(self.L))
         print("total particles = %d"%(self.N_particles))
         print("number density = %1.3f"%(self.N_particles/(self.L**3)))
-        self.N_dummy_bonds = int(np.round(1.1*self.N_particles))
-        self.N_dummy_angles = self.N_dummy_bonds*2
+        # self.N_dummy_bonds = int(np.round(1.1*self.N_particles))
+        self.N_dummy_bonds = int(np.round(reactive_beads*1.05))
+        self.N_dummy_angles = self.N_dummy_bonds*3
 
 
         all_positions = []
@@ -94,11 +98,12 @@ class System:
         all_bonds = []
         all_bonds_types = []
         all_angles = []
+        # all_angles_types = []
         '''
         ### crosslinkers 
-        ## non-simple system
+        ## unspaced system
         '''
-        if self.simple_system == False: 
+        if self.unspaced_system == False: 
             one_set_types = np.array([self.thiol_type,self.spacer_type1,self.spacer_type2,
                                 self.thiol_type,self.spacer_type1,self.spacer_type2,
                                 self.thiol_type,self.spacer_type1,self.spacer_type2,
@@ -127,7 +132,9 @@ class System:
                     all_bonds_types.append(0)
                 for a in one_set_angles:
                     all_angles.append(a+self.size_crosslinker*i)
-        ## simple system
+                # for a in one_set_angles:
+                #     all_angles_types.append(0)
+        ## unspaced system
         else: 
             one_set_types = np.array([self.thiol_type,
                                     self.thiol_type,
@@ -137,6 +144,9 @@ class System:
             
             one_set_bonds = np.array([[0,4],[1,4],[2,4],[3,4]])
             
+            if self.FJ_system == False:
+                one_set_angles = np.array([[0,4,1],[1,4,2],[2,4,3],[3,4,0]])
+
             for i in range(self.N_crosslinker):
                 p = np.random.uniform(-self.L/2., +self.L/2., size=(1,3))
                 offsets = self.sample_spherical(int(self.size_crosslinker))*0.5
@@ -149,10 +159,13 @@ class System:
                     all_bonds.append(b+self.size_crosslinker*i)
                 for b in one_set_bonds:
                     all_bonds_types.append(0)
+
+            
+
         
         ### thiol chain-extenders
-        ## non-simple system  
-        if self.simple_system == False: 
+        ## non-spaced system
+        if self.unspaced_system == False: 
             one_set_types = []
             one_set_types.append(self.thiol_type)
             for i in range(self.size_extender-2):
@@ -163,11 +176,11 @@ class System:
             b = np.arange(1,self.size_extender-0)
             one_set_bonds = np.vstack((a,b)).T
 
-            a = np.arange(0,self.size_extender-2)
-            b = np.arange(1,self.size_extender-1)
-            c = np.arange(2,self.size_extender-0)
-            one_set_angles = np.vstack([a,b,c]).T
-
+            if self.FJ_system == False:
+                a = np.arange(0,self.size_extender-2)
+                b = np.arange(1,self.size_extender-1)
+                c = np.arange(2,self.size_extender-0)
+                one_set_angles = np.vstack([a,b,c]).T
 
             N_current = self.N_crosslinker*self.size_crosslinker
 
@@ -183,9 +196,13 @@ class System:
                     all_bonds.append(b+self.size_extender*i+N_current)
                 for b in one_set_bonds:
                     all_bonds_types.append(0)
-                for a in one_set_angles:
-                    all_angles.append(a+self.size_extender*i+N_current)
-        ## simple system
+
+                if self.FJ_system == False:
+                    for a in one_set_angles:
+                        all_angles.append(a+self.size_extender*i+N_current)
+                    # for a in one_set_angles:
+                    #     all_angles_types.append(0)
+        ## unspaced system
         else: 
             one_set_types= [self.thiol_type,self.thiol_type]
             one_set_bonds = np.array([[0,1]])
@@ -206,9 +223,9 @@ class System:
                     all_bonds_types.append(0)
         '''
         ### monomers 
-        ## non-simple system
+        ## non-spaced system
         '''
-        if self.simple_system == False: 
+        if self.unspaced_system == False: 
             one_set_types = []
             one_set_types.append(self.ene_type)
             one_set_types.append(self.ene_type)
@@ -225,10 +242,11 @@ class System:
             b = np.arange(1,self.size_monomer-0)
             one_set_bonds = np.vstack((a,b)).T
 
-            a = np.arange(0,self.size_monomer-2)
-            b = np.arange(1,self.size_monomer-1)
-            c = np.arange(2,self.size_monomer-0)
-            one_set_angles = np.vstack([a,b,c]).T
+            if self.FJ_system == False:
+                a = np.arange(0,self.size_monomer-2)
+                b = np.arange(1,self.size_monomer-1)
+                c = np.arange(2,self.size_monomer-0)
+                one_set_angles = np.vstack([a,b,c]).T
 
             N_current += self.N_extenders*self.size_extender
 
@@ -249,13 +267,20 @@ class System:
                     # internal single bonds
                     else:
                         all_bonds_types.append(4)
-                for a in one_set_angles:
-                    all_angles.append(a+self.size_monomer*i+N_current)
+                if self.FJ_system == False:
+                    for a in one_set_angles:
+                        all_angles.append(a+self.size_monomer*i+N_current)
+                # for a in one_set_angles:
+                #     all_angles_types.append(0)
         else: 
             # types of atoms in the order they appear in line
             one_set_types= [self.ene_type,self.ene_type,self.ene_type,self.ene_type]
             # which atoms are bonded together
             one_set_bonds = np.array([[0,1],[1,2],[2,3]])
+
+            if self.FJ_system == False:
+                one_set_angles = np.array([[0,1,2],[1,2,3]])
+
             N_current += self.N_extenders*self.size_extender
             
             # for each monomer in the system, generate the poistions, and the bonds to each other
@@ -276,6 +301,9 @@ class System:
                     # internal single bonds
                     else:
                         all_bonds_types.append(4)
+                if self.FJ_system == False:
+                    for a in one_set_angles:
+                        all_angles.append(a+self.size_monomer*i+N_current)
         
         # format all molecular information
         all_positions = np.asarray(all_positions)
@@ -284,6 +312,7 @@ class System:
         all_bonds = np.asarray(all_bonds)
         all_bonds_types = np.asarray(all_bonds_types)
         all_angles = np.asarray(all_angles)
+        # all_angles_types = np.asarray(all_angles_types)
         
         # write all information into gsd file 
         frame = gsd.hoomd.Frame()
@@ -317,13 +346,15 @@ class System:
         frame.bonds.N = len(bonds)+len(dummy_bonds)
         
         # if includng angles, specify them in the gsd file
-        if self.simple_system == False: 
+        if self.FJ_system == False: 
             angles = np.asarray((all_angles.flatten()).reshape(-1,3))
             dummy_angles = np.tile([self.N_particles,self.N_particles+1,self.N_particles+2],(self.N_dummy_angles,1))
             frame.angles.group = np.vstack((angles,dummy_angles))
             frame.angles.typeid = np.hstack((len(angles)*[0],len(dummy_angles)*[self.dummy_type_angle]))
             frame.angles.N = len(angles)+len(dummy_angles)
         return frame 
+    
+    
     
     
     '''
@@ -350,14 +381,12 @@ class System:
         
         # normal
         # turn some A into radical_thiol
-        
         '''
         ids = np.arange(snapshot.particles.N) 
         all_thiols =  ids[snapshot.particles.typeid==self.thiol_type]
         n_radicals = int(np.round(radical_number_percent*len(all_thiols)/100.0))
         radicals = np.random.choice(all_thiols, n_radicals, replace=False)
         snapshot.particles.typeid[radicals] = self.radical_thiol
-        
         
         
 
@@ -388,6 +417,7 @@ class System:
             # find all particles with only 1 non-H covalent bond
             only_one_bond_ids = bond_ids[bond_counts==1]
             
+            
             # the ene groups that are candidates for rxn only have one bond
             polymer_candidates_ids = np.intersect1d(only_one_bond_ids,polymer_ids)
             polymer_candidates_positions = positions[polymer_candidates_ids]
@@ -413,7 +443,7 @@ class System:
 
                     # get the types of the neighbors
                     neigh_a_types = particle_ids[neigh_a]
-                    # take the neighbors that are not radiacl thiols or radical carbons
+                    # take the neighbors that are not radical thiols or radical carbons
                     neigh_a = neigh_a[(neigh_a_types!=self.radical_thiol)|(neigh_a_types!=self.radical_carbon)]
                     bond_ids,bond_counts = np.unique((snapshot.bonds.group).flatten(),return_counts=True)
                     # the neighbors also must have only 1 bond (terminal carbon)
@@ -439,15 +469,15 @@ class System:
                         bonds_on_a = np.unique(np.vstack((bonds_on_a_1,bonds_on_a_2)).flatten())
                         bonds_on_a = bonds_on_a[bonds_on_a!=a]
                         
-                        # if not simple_system then include angles
-                        if self.simple_system == False: 
+                        # if not FJ_system then include angles
+                        if self.FJ_system == False: 
                             U = np.where(snapshot.angles.typeid==self.dummy_type_angle)[0][0]
                             # good
                             snapshot.angles.group[U]=[bonds_on_b[0],b,a]  # angle 
-                            snapshot.angles.typeid[U]=1
+                            snapshot.angles.typeid[U]=0
                             # good
                             snapshot.angles.group[U+1]=[bonds_on_a[0],a,b] #angle 
-                            snapshot.angles.typeid[U+1]=1
+                            snapshot.angles.typeid[U+1]=0
 
                         # flip types of bonds 
                         snapshot.bonds.typeid[snapshot.bonds.group[:,0]==a]=3
@@ -600,15 +630,27 @@ class System:
                         bonds_on_a = np.unique(np.vstack((bonds_on_a_1,bonds_on_a_2)).flatten())
                         bonds_on_a = bonds_on_a[bonds_on_a!=a]
                         
-                        # if not simple_system then include angles
-                        if self.simple_system == False: 
+                        # if not FJ system then include angles
+                        if self.FJ_system == False: 
                             U = np.where(snapshot.angles.typeid==self.dummy_type_angle)[0][0]
                             
+                            n_angles_added = 0
+                            for next_neighbor in bonds_on_b:
+                                snapshot.angles.group[U+n_angles_added]=[bonds_on_b[n_angles_added],b,a]  # angle 
+                                snapshot.angles.typeid[U+n_angles_added]=0
+                                n_angles_added += 1
+                            for next_neighbor in bonds_on_a:
+                                snapshot.angles.group[U+n_angles_added]=[bonds_on_a[n_angles_added-len(bonds_on_b)],a,b] #angle 
+                                snapshot.angles.typeid[U+n_angles_added]=0
+                                n_angles_added += 1
+
+                            '''
                             snapshot.angles.group[U]=[bonds_on_b[0],b,a]  # angle 
                             snapshot.angles.typeid[U]=1
                            
                             snapshot.angles.group[U+1]=[bonds_on_a[0],a,b] #angle 
                             snapshot.angles.typeid[U+1]=1
+                            '''
 
                         
                         # flip types of bonds 
@@ -674,14 +716,14 @@ class System:
                     bonds_on_a = np.unique(np.vstack((bonds_on_a_1,bonds_on_a_2)).flatten())
                     bonds_on_a = bonds_on_a[bonds_on_a!=a]
                     
-                    if self.simple_system == False: 
+                    if self.FJ_system == False: 
                         U = np.where(snapshot.angles.typeid==self.dummy_type_angle)[0][0]
                         # good
                         snapshot.angles.group[U]=[bonds_on_b[0],b,a]  # angle 
-                        snapshot.angles.typeid[U]=1
+                        snapshot.angles.typeid[U]=0
                         # good
                         snapshot.angles.group[U+1]=[bonds_on_a[0],a,b] #angle 
-                        snapshot.angles.typeid[U+1]=1
+                        snapshot.angles.typeid[U+1]=0
 
                     # good 
                     U = np.where(snapshot.bonds.typeid==self.dummy_type_bond)[0][0]

@@ -1,9 +1,28 @@
-from scripts.system import System
 import numpy as np
 import gsd,gsd.hoomd
 import sys, os 
 sys.path.insert(0,'/Users/statt/Programs/hoomd_fork_4.0.1/')
 import hoomd
+from timeit import default_timer as timer
+from scripts.system import System
+
+import datetime
+class Status:
+    def __init__(self, simulation):
+        self.simulation = simulation
+
+    @property
+    def seconds_remaining(self):
+        try:
+            return (
+                self.simulation.final_timestep - self.simulation.timestep
+            ) / self.simulation.tps
+        except ZeroDivisionError:
+            return 0
+
+    @property
+    def etr(self):
+        return str(datetime.timedelta(seconds=self.seconds_remaining))
 
 class Simulator():
     def __init__(self,job):
@@ -32,7 +51,14 @@ class Simulator():
         self.output_run_txt =job.fn('run.txt')
         self.run_gsd_file = job.fn('run.gsd')
 
-    def equilibrate(self): 
+        if "custom_action" in self.job.sp["polymerization_method"]:
+            import scripts.customAction.polymerize as polymerize
+
+
+    def equilibrate(self):
+        if "custom_action" in self.job.sp["polymerization_method"]:
+            import scripts.customAction.polymerize as polymerize
+
         S = System()
         frame = S.create_initial_configuration(density=self.rho,
                                             N_monomers = self.N_monomers,
@@ -45,22 +71,26 @@ class Simulator():
             
             f.append(frame)
 
-        try:
-            cpu = hoomd.device.GPU()
-        except:
-            cpu = hoomd.device.CPU()
+        # try:
+        #     cpu = hoomd.device.GPU()
+        # except:
+        #     cpu = hoomd.device.CPU()
+        if self.job.sp["polymerization_method"] == "custom_action_GPU" or self.job.sp["polymerization_method"] == "custom_action_GPU_bulk":
+            device = hoomd.device.GPU(notice_level=3)
+        else:
+            device = hoomd.device.CPU(notice_level=3)
+        print(self.job.sp["polymerization_method"]," is being run on ",device)
 
-        sim = hoomd.Simulation(device=cpu, seed=1)
+        sim = hoomd.Simulation(device=device, seed=1)
         sim.create_state_from_gsd(filename=self.equi_gsd_file)
 
         if len(sim.state.angle_types)==0:
-            simple_system=True
+            FJ_system=True
         else:
-            simple_system=False
+            FJ_system=False
 
         integrator = hoomd.md.Integrator(dt=0.005)
         cell = hoomd.md.nlist.Cell(buffer=0.4)
-
 
         lj = hoomd.md.pair.LJ(nlist=cell)
 
@@ -87,10 +117,10 @@ class Simulator():
         harmonic.params[S.bond_types] = dict(k=100.0, r0=0.96)
         harmonic.params['Dummy'] = dict(k=0.0, r0=0.0)
         
-        if simple_system==False:
-            harmonic_a = hoomd.md.angle.Harmonic()
-            harmonic_a.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi)
-            harmonic_a.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
+        if FJ_system==False:
+            cosinesq = hoomd.md.angle.CosineSquared()
+            cosinesq.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
+            cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
 
         types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1]) # everything but "Dummy" particles
 
@@ -115,8 +145,8 @@ class Simulator():
         fire.forces = [lj,fene]
 
         sim.run(1000)
-        if simple_system==False:
-            fire.forces = [lj,fene,harmonic_a]
+        if FJ_system==False:
+            fire.forces = [lj,fene,cosinesq]
 
             sim.run(1000)
 
@@ -134,8 +164,8 @@ class Simulator():
 
         integrator.methods.append(langevin)
         
-        if simple_system==False:
-            integrator.forces = [lj,fene,harmonic_a]
+        if FJ_system==False:
+            integrator.forces = [lj,fene,cosinesq]
         else:
             integrator.forces = [lj,fene]
 
@@ -147,15 +177,22 @@ class Simulator():
         print("writing gsd file to:",self.equi_gsd_file)
 
     def polymerize(self):
+        if "custom_action" in self.job.sp["polymerization_method"]:
+            import scripts.customAction.polymerize as polymerize
         
         S = System()
 
-        try:
-            cpu = hoomd.device.GPU()
-        except:
-            cpu = hoomd.device.CPU()
-        
-        sim = hoomd.Simulation(device=cpu, seed=1)
+        # try:
+        #     cpu = hoomd.device.GPU(notice_level=5)
+        # except:
+        #     cpu = hoomd.device.CPU(notice_level=5)
+        if self.job.sp["polymerization_method"] == "custom_action_GPU" or self.job.sp["polymerization_method"] == "custom_action_GPU_bulk":
+            device = hoomd.device.GPU(notice_level=3)
+        else:
+            device = hoomd.device.CPU(notice_level=3)
+        print(f"job_id: {self.job.id}",self.job.sp["polymerization_method"]," is being run on ",device)
+
+        sim = hoomd.Simulation(device=device, seed=1)
 
         if os.path.isfile(self.polymerize_gsd_file) and os.path.getsize(self.polymerize_gsd_file)>1e4:
             sim.create_state_from_gsd(filename=self.polymerize_gsd_file)
@@ -163,9 +200,9 @@ class Simulator():
             sim.create_state_from_gsd(filename=self.equi_gsd_file)
         
         if len(sim.state.angle_types)==0:
-            simple_system=True
+            FJ_system=True
         else:
-            simple_system=False
+            FJ_system=False
 
         integrator = hoomd.md.Integrator(dt=0.005)
         sim.operations.integrator = integrator 
@@ -184,12 +221,12 @@ class Simulator():
         fene.params[S.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
         fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
 
-        if simple_system==False:
-            harmonic_a = hoomd.md.angle.Harmonic()
-            harmonic_a.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi)
-            harmonic_a.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
+        if FJ_system==False:
+            cosinesq = hoomd.md.angle.CosineSquared()
+            cosinesq.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
+            cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
 
-            integrator.forces = [lj,fene,harmonic_a]
+            integrator.forces = [lj,fene,cosinesq]
         else:
             integrator.forces = [lj,fene]
 
@@ -224,7 +261,7 @@ class Simulator():
 
         # Define and add the GSD operation.
         gsd_writer = hoomd.write.GSD(filename=self.polymerize_gsd_file,
-                                    trigger=hoomd.trigger.Periodic(100*self.polymerize_period),
+                                    trigger=hoomd.trigger.Periodic(100*100),#self.polymerize_period),
                                     dynamic=['property','momentum','topology','attribute'],
                                     mode='ab')
         sim.operations.writers.append(gsd_writer)
@@ -232,124 +269,238 @@ class Simulator():
         thermodynamic_properties = hoomd.md.compute.ThermodynamicQuantities(filter=types_to_integrate)
         sim.operations.computes.append(thermodynamic_properties)
        
-        logger = hoomd.logging.Logger(categories=['scalar'])
+        status = Status(sim)
+        logger = hoomd.logging.Logger(categories=['scalar','string'])
        
-        logger.add(sim, quantities=['timestep'])
+        logger.add(sim, quantities=['timestep','tps'])
         logger.add(thermodynamic_properties, quantities=['kinetic_temperature','pressure','kinetic_energy','potential_energy','volume'])
 
-        table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period),logger=logger)
-        table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period),logger=logger, output=open(self.output_txt,'a'))
+        # table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger)
+        # table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger, output=open(self.output_txt,'a'))
+        table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(100,100),logger=logger)
+        table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(100,100),logger=logger, output=open(self.output_txt,'a'))
         sim.operations.writers.append(table_stdout)
         sim.operations.writers.append(table_file)
-       
-        sim.run(1000)
-        
-        for i in range(10000):
-            with sim.state.cpu_local_snapshot as snapshot:
-                S.propagate_reaction(snapshot,
-                                     r_cut=self.r_cut_reaction,
-                                     chain_transfer_probability=self.chain_transfer_probability,
-                                     chain_side_reaction_probability=self.chain_side_reaction_probability)
-                
-                dummy_id = len(sim.state.bond_types)-1
-                bonds = snapshot.bonds.group[snapshot.bonds.typeid!=dummy_id] # remove dummy type bond 
-                nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
-                bonded = nids[counts>=2]
-                #reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
 
-                ids = np.arange(len(snapshot.particles.tag))
-                idx = snapshot.particles.rtag[ids]
-                particle_ids = snapshot.particles.typeid[idx]
+        if "custom_action" in self.job.sp["polymerization_method"]:
+            if self.job.sp["polymerization_method"] == "custom_action_GPU" or self.job.sp["polymerization_method"] == "custom_action_CPU" :
+                #define and add the actions and operations to keep track of extent of reaction
+                extent_of_reaction_action = polymerize.calc_extent_of_reaction(
+                                            simulator=self) 
+                extent_of_reaction_operation = hoomd.update.CustomUpdater(
+                    action=extent_of_reaction_action, trigger=self.polymerize_period
+                )
+                sim.operations += extent_of_reaction_operation
 
-                unreacted_enes = len(ids[particle_ids==1])/2
-                self.job.doc['reacted_monomers'] = 1 - unreacted_enes/(self.N_monomers*2)
-                
-            #sim.run(10)
-            sim.run(self.polymerize_period)
+                #define and add the polymerization actions and operations
+                bond_formation_action = polymerize.bond_formation(
+                                            probability=1.0,r_cut=self.r_cut_reaction,
+                                            FJ_system=FJ_system) 
+                    #thiol reaction probability defaults to 1.0 in system's propagate reactions
+                bond_formation_operation = hoomd.update.CustomUpdater(
+                    action=bond_formation_action, trigger=self.polymerize_period
+                )
+                sim.operations += bond_formation_operation
 
-            gsd_writer.flush()
+                # polymerize.chain_growth(self.)
+                chain_growth_action = polymerize.chain_growth(
+                                            probability=self.chain_side_reaction_probability,
+                                            r_cut=self.r_cut_reaction,FJ_system=FJ_system)
+                chain_growth_operation = hoomd.update.CustomUpdater(
+                    action=chain_growth_action, trigger=self.polymerize_period
+                )
+                sim.operations += chain_growth_operation
 
-    def run(self):
+                # polymerize.chain_transfer(self.)
+                chain_transfer_action = polymerize.chain_transfer(
+                                                probability=self.chain_transfer_probability,
+                                                r_cut=self.r_cut_reaction,FJ_system=FJ_system) 
+                chain_transfer_operation = hoomd.update.CustomUpdater(
+                    action=chain_transfer_action, trigger=self.polymerize_period
+                )
+                sim.operations += chain_transfer_operation
 
-        S = System()
-        
-        try:
-            cpu = hoomd.device.GPU()
-        except:
-            cpu = hoomd.device.CPU()
-        
-        sim = hoomd.Simulation(device=cpu, seed=1)
-        sim.create_state_from_gsd(filename=self.polymerize_gsd_file)
+                '''
+                termination_action = polymerize.termination_reactions(
+                                        probability=1.0,r_cut=self.r_cut_reaction,FJ_system=FJ_system)
+                    #thiol reaction probability defaults to 1.0 in system's propagate reactions
+                termination_operation = hoomd.update.CustomUpdater(
+                    action=termination_action, trigger=self.polymerize_period
+                )
+                sim.operations += termination_operation
+                '''
+            elif self.job.sp["polymerization_method"] == "custom_action_GPU_bulk":
+                bulk_polymerization_action = polymerize.bulk_polymerize(
+                                        r_cut=self.r_cut_reaction,FJ_system=FJ_system,simulator=self)
+                bulk_polymerization_operation = hoomd.update.CustomUpdater(
+                    action=bulk_polymerization_action, trigger=self.polymerize_period
+                )
+                sim.operations += bulk_polymerization_operation
 
-        if len(sim.state.angle_types)==0:
-            simple_system=True
+
+            polymerization_times = []
+            integration_times = []
+            integration_tps = []
+            # tps = []
+
+            simulation_start = timer()
+            
+            for i in range(10000):
+                period_start = timer()
+
+                polymerization_start = timer()
+                sim.run(1)
+                polymerization_end = timer()
+                polymerization_times.append(polymerization_end - polymerization_start)
+
+                integration_start = timer()
+                sim.run(self.polymerize_period-1)
+                integration_end = timer()
+                integration_times.append(integration_end - integration_start)
+
+                integration_tps.append((self.polymerize_period-1)/integration_times[-1])
+
+                gsd_writer.flush()
+
+                period_end = timer()
+                # tps.append(period_end - period_start)
+
+                # self.job.doc["TPS"] = np.average(tps)
+                self.job.doc["avg_polymerization_time"] = np.average(polymerization_times)
+                self.job.doc["avg_integration_time"] = np.average(integration_times)
+                self.job.doc["integration_tps"] = np.average(integration_tps)
+
+                if self.job.doc["reacted_monomers"] > 0.925:
+                    exit()
         else:
-            simple_system=False
+            if "local_snapshot" not in self.job.sp["polymerization_method"]:
+                print("ERROR: Polymerization method not recognized")
+                exit(2)
+            polymerization_times = []
+            integration_times = []
+            integration_tps = []
 
-        integrator = hoomd.md.Integrator(dt=0.005)
-        sim.operations.integrator = integrator 
+            for i in range(10000):
+                propagate_start = timer()
+                with sim.state.cpu_local_snapshot as snapshot:
+                    S.propagate_reaction(snapshot,
+                                        r_cut=self.r_cut_reaction,
+                                        chain_transfer_probability=self.chain_transfer_probability,
+                                        chain_side_reaction_probability=self.chain_side_reaction_probability)
+                    
+                    dummy_id = len(sim.state.bond_types)-1
+                    bonds = snapshot.bonds.group[snapshot.bonds.typeid!=dummy_id] # remove dummy type bond 
+                    nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
+                    bonded = nids[counts>=2]
+                    #reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
 
-        cell = hoomd.md.nlist.Cell(buffer=0.4)
+                    ids = np.arange(len(snapshot.particles.tag))
+                    idx = snapshot.particles.rtag[ids]
+                    particle_ids = snapshot.particles.typeid[idx]
 
-        lj = hoomd.md.pair.LJ(nlist=cell)
-        lj.params[(S.particles_types, S.particles_types)] = dict(epsilon=1.0,sigma=1.0)
-        lj.r_cut[S.particles_types, S.particles_types] = 2.5
+                    unreacted_enes = len(ids[particle_ids==1])/2
+                    self.job.doc['reacted_monomers'] = 1 - unreacted_enes/(self.N_monomers*2)
 
-        lj.params[(S.particles_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
-        lj.r_cut[S.particles_types, 'Dummy'] = 0
-        lj.mode = 'shift'
+                propagate_end = timer()
 
-        fene = hoomd.md.bond.FENEWCA()
-        fene.params[S.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
-        fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
+                sim.run(self.polymerize_period)
 
-        if simple_system==False:
-            harmonic_a = hoomd.md.angle.Harmonic()
-            harmonic_a.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi)
-            harmonic_a.params['Dummy'] = dict(k=1e-6, t0=np.pi)  # k>0 to make warning go away (should not do anything)
+                gsd_writer.flush()
 
-            integrator.forces = [lj,fene,harmonic_a]
-        else: 
-            integrator.forces = [lj,fene]
+                period_end = timer()
 
-        types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1])
+                polymerization_times.append(propagate_end - propagate_start)
+                integration_times.append(period_end - propagate_end)
+                integration_tps.append(self.polymerize_period/(period_end - propagate_end))
 
-        npt = hoomd.md.methods.ConstantPressure(
-            filter=types_to_integrate,
-            tauS=1000*sim.operations.integrator.dt,
-            gamma=2/(1000*sim.operations.integrator.dt),
-            S=0.0,
-            couple="xyz",
-            rescale_all=True,
-            thermostat=hoomd.md.methods.thermostats.MTTK(kT=self.kT,tau=sim.operations.integrator.dt*100))
+                self.job.doc["avg_polymerization_time"] = np.average(polymerization_times)
+                self.job.doc["avg_integration_time"] = np.average(integration_times)
+                self.job.doc["integration_tps"] = np.average(integration_tps)
+
+                if self.job.doc["reacted_monomers"] > 0.925:
+                    exit()
+
+    # def run(self):
+
+    #     S = System()
         
-        sim.state.thermalize_particle_momenta(filter=types_to_integrate, kT=self.kT)
-        #zero_momentum = hoomd.md.update.ZeroMomentum( hoomd.trigger.On(1000))
-        #sim.operations.updaters.append(zero_momentum)
+    #     try:
+    #         cpu = hoomd.device.GPU()
+    #     except:
+    #         cpu = hoomd.device.CPU()
         
-        sim.operations.integrator.methods.append(npt)
+    #     sim = hoomd.Simulation(device=cpu, seed=1)
+    #     sim.create_state_from_gsd(filename=self.polymerize_gsd_file)
 
-        # Define and add the GSD operation.
-        gsd_writer = hoomd.write.GSD(filename=self.run_gsd_file,
-                                    trigger=hoomd.trigger.Periodic(1000),
-                                    dynamic=['property','momentum','topology','attribute'],
-                                    mode='wb')
-        sim.operations.writers.append(gsd_writer)
+    #     if len(sim.state.angle_types)==0:
+    #         FJ_system=True
+    #     else:
+    #         FJ_system=False
 
-        thermodynamic_properties = hoomd.md.compute.ThermodynamicQuantities(filter=types_to_integrate)
-        sim.operations.computes.append(thermodynamic_properties)
+    #     integrator = hoomd.md.Integrator(dt=0.005)
+    #     sim.operations.integrator = integrator
+
+    #     cell = hoomd.md.nlist.Cell(buffer=0.4)
+
+    #     lj = hoomd.md.pair.LJ(nlist=cell)
+    #     lj.params[(S.particles_types, S.particles_types)] = dict(epsilon=1.0,sigma=1.0)
+    #     lj.r_cut[S.particles_types, S.particles_types] = 2.5
+
+    #     lj.params[(S.particles_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
+    #     lj.r_cut[S.particles_types, 'Dummy'] = 0
+    #     lj.mode = 'shift'
+
+    #     fene = hoomd.md.bond.FENEWCA()
+    #     fene.params[S.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
+    #     fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
+
+    #     if FJ_system==False:
+    #         harmonic_a = hoomd.md.angle.Harmonic()
+    #         harmonic_a.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi)
+    #         harmonic_a.params['Dummy'] = dict(k=1e-6, t0=np.pi)  # k>0 to make warning go away (should not do anything)
+
+    #         integrator.forces = [lj,fene,harmonic_a]
+    #     else: 
+    #         integrator.forces = [lj,fene]
+
+    #     types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1])
+
+    #     npt = hoomd.md.methods.ConstantPressure(
+    #         filter=types_to_integrate,
+    #         tauS=1000*sim.operations.integrator.dt,
+    #         gamma=2/(1000*sim.operations.integrator.dt),
+    #         S=0.0,
+    #         couple="xyz",
+    #         rescale_all=True,
+    #         thermostat=hoomd.md.methods.thermostats.MTTK(kT=self.kT,tau=sim.operations.integrator.dt*100))
+        
+    #     sim.state.thermalize_particle_momenta(filter=types_to_integrate, kT=self.kT)
+    #     #zero_momentum = hoomd.md.update.ZeroMomentum( hoomd.trigger.On(1000))
+    #     #sim.operations.updaters.append(zero_momentum)
+        
+    #     sim.operations.integrator.methods.append(npt)
+
+    #     # Define and add the GSD operation.
+    #     gsd_writer = hoomd.write.GSD(filename=self.run_gsd_file,
+    #                                 trigger=hoomd.trigger.Periodic(1000),
+    #                                 dynamic=['property','momentum','topology','attribute'],
+    #                                 mode='wb')
+    #     sim.operations.writers.append(gsd_writer)
+
+    #     thermodynamic_properties = hoomd.md.compute.ThermodynamicQuantities(filter=types_to_integrate)
+    #     sim.operations.computes.append(thermodynamic_properties)
        
-        logger = hoomd.logging.Logger(categories=['scalar'])
+    #     logger = hoomd.logging.Logger(categories=['scalar'])
        
-        logger.add(sim, quantities=['timestep'])
-        logger.add(thermodynamic_properties, quantities=['kinetic_temperature','pressure','kinetic_energy','potential_energy','volume'])
+    #     logger.add(sim, quantities=['timestep'])
+    #     logger.add(thermodynamic_properties, quantities=['kinetic_temperature','pressure','kinetic_energy','potential_energy','volume'])
 
-        table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(1000),logger=logger)
-        table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(1000),logger=logger, output=open(self.output_run_txt,'w'))
-        sim.operations.writers.append(table_stdout)
-        sim.operations.writers.append(table_file)
+    #     table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(1000),logger=logger)
+    #     table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(1000),logger=logger, output=open(self.output_run_txt,'w'))
+    #     sim.operations.writers.append(table_stdout)
+    #     sim.operations.writers.append(table_file)
 
-        sim.run(10000000)
+    #     sim.run(10000000)
 
 
 
