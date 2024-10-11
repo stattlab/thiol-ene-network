@@ -26,23 +26,31 @@ def main():
 
     # change small blob density
     statepoint_grid = {
-        "replica_index": [0,1,2,3,4,5,6,7,8,9],
-        "density": [0.9],
+        "replica_index": [0,1],
+        "density": [0.8475],
         "temperature":[0.9],
-        "crosslinker_percent":[50.0],#10.0,25.0,50.0,75.0],
-        "N_monomers":[500],
+        "crosslinker_percent":[10.0],#0.0,10.0,25.0,50.0,75.0],
+        "N_monomers":[5000,10000],
         "monomer_size":[0],
         "extender_size":[0],
         "radical_percent":[1.0],
-        "chain_side_reaction_probability": [0],#0.1,0.5,0.6,0.9],
-        "chain_transfer_probability": [0.5],
+        "chain_side_reaction_probability": [0.333],#0.0,0.5,0.6,0.9],
+        "chain_transfer_probability": [0.333],
         "thiol_reaction_probability": [0.5],
-        "polymerize_period": [100],
+        # "polymerize_period": [100],#,1,1000000000],
+        "polymerize_period": [1,10,100,1000,10000,100000],#,1,1000000000],
         "r_cut_reaction":[1.1],
-        "angle_constant":[5.0],
+        "angle_constant":[100],
+        # "polymerization_method":["custom_action_GPU","custom_action_GPU_bulk"],
+        "polymerization_method":["cpu_local_snapshot","custom_action_GPU","custom_action_CPU"],
         }
 
     for sp in grid(statepoint_grid):
+        # only create the statepoint with 10,000 monomers with polymerize_period 100 and on cpu_local_snapshot
+        if(sp.get("N_monomers") == 10000):
+            if (sp.get("polymerize_period") != 100) or (sp.get("polymerization_method") != "cpu_local_snapshot") or (sp.get("replica_index") != 0):
+                continue
+
         # open the job and initialize
         job = project.open_job(sp).init()
         if job.sp['monomer_size']>0 and job.sp['extender_size']>0:
@@ -73,6 +81,21 @@ def main():
         except:
             job.doc['reacted_monomers'] = 0
 
+        job.doc['average_polymerization_time'] = 0
+        job.doc['average_period_time'] = 0
+
+        try:
+            job.doc['avg_polymerization_time']
+        except:
+            job.doc['avg_polymerization_time'] = 0
+        try:
+            job.doc['avg_integration_time']
+        except:
+            job.doc['avg_integration_time'] = 0
+        try:
+            job.doc['integration_tps']
+        except:
+            job.doc['integration_tps'] = 0
 
         print(f"initializing state point with id {job.id}, N_extenders {N_extenders}, N_crosslinkers {N_crosslinker}, N_monomers {job.sp['N_monomers']}")
 
