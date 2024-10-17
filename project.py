@@ -25,11 +25,7 @@ def equilibrated(job):
 
 @MyProject.label
 def reacted(job):
-    # return job.doc['reacted_monomers']>0.9
-    if job.isfile("polymerize.gsd"):
-        return os.path.getsize(job.fn("polymerize.gsd")) > 500
-    else:
-        return False
+    return job.doc['reacted_monomers']>0.9 
 
 @MyProject.label
 def reacting(job):
@@ -40,13 +36,6 @@ def reacting(job):
 @MyProject.operation
 def equilibrate(job):
     from scripts.simulate import Simulator
-    # if job.sp["polymerization_method"] == "cpu_local_snapshot":
-    #     from scripts.simulate import Simulator
-    # elif job.sp["polymerization_method"] == "custom_action_GPU" or job.sp["polymerization_method"] == "custom_action_CPU" or job.sp["polymerization_method"] == "custom_action_GPU_bulk":
-    #     from scripts.customAction.simulate import Simulator
-    # else:
-    #     print("ERROR polymerization_method not recognized")
-    #     exit(2)
     sinit = Simulator(job)
     sinit.equilibrate()
     print("equilibrated",job.id)
@@ -57,13 +46,6 @@ def equilibrate(job):
 @MyProject.operation
 def polymerize(job):
     from scripts.simulate import Simulator
-    # if job.sp["polymerization_method"] == "cpu_local_snapshot":
-    #     from scripts.simulate import Simulator
-    # elif job.sp["polymerization_method"] == "custom_action_GPU" or job.sp["polymerization_method"] == "custom_action_CPU" or job.sp["polymerization_method"] == "custom_action_GPU_bulk":
-    #     from scripts.customAction.simulate import Simulator
-    # else:
-    #     print("ERROR polymerization_method not recognized")
-    #     exit(2)
     sinit = Simulator(job)
     sinit.polymerize()
     print("reacted",job.id)
