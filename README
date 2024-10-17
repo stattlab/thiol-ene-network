@@ -80,17 +80,9 @@ python project.py run -o polymerize -n 1 -j 7f0fd52c32da20cd80a98cc394647ab8
 to run on cluster: 
 ssh statt@cc-login.campuscluster.illinois.edu
 python project.py submit -o polymerize -n 4  -- --partition eng-research-gpu --time 24:00:00 --gres gpu
-python project.py submit -o polymerize -n 10 -f '{"chain_side_reaction_probability":0.5}' -- --partition secondary --time 4:00:00 --gres gpu
-
 python project.py submit -o polymerize -n 10  -- --partition secondary --time 4:00:00 --gres gpu
-
-python project.py submit -o polymerize -n 9  -f '{"chain_side_reaction_probability":0.5}' -- --partition secondary --time 2:00:00
-
-python project.py submit -o polymerize -n 9  -f '{"crosslinker_percent":50}' -- --partition secondary --time 2:00:00
 
 
 other cluster things:
 sinfo 
 squeue -u statt 
-
-python project.py run -o polymerize -n 1 -j  0850ee96d8b53dc677a179fe581d5d06
