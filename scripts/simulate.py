@@ -32,17 +32,17 @@ class Simulator():
         self.output_run_txt =job.fn('run.txt')
         self.run_gsd_file = job.fn('run.gsd')
 
-    def equilibrate(self):
-       
+    def equilibrate(self): 
         S = System()
         frame = S.create_initial_configuration(density=self.rho,
                                             N_monomers = self.N_monomers,
                                             monomer_size=self.monomer_size,
                                             extender_size=self.extender_size,
                                             crosslinker=self.crosslinker_percent)
-
+        
 
         with gsd.hoomd.open(name=self.equi_gsd_file, mode='w') as f:
+            
             f.append(frame)
 
         try:
@@ -224,7 +224,7 @@ class Simulator():
 
         # Define and add the GSD operation.
         gsd_writer = hoomd.write.GSD(filename=self.polymerize_gsd_file,
-                                    trigger=hoomd.trigger.Periodic(1),
+                                    trigger=hoomd.trigger.Periodic(100*self.polymerize_period),
                                     dynamic=['property','momentum','topology','attribute'],
                                     mode='ab')
         sim.operations.writers.append(gsd_writer)
@@ -255,9 +255,16 @@ class Simulator():
                 bonds = snapshot.bonds.group[snapshot.bonds.typeid!=dummy_id] # remove dummy type bond 
                 nids, counts = np.unique(np.concatenate(bonds).flatten(),return_counts=True)
                 bonded = nids[counts>=2]
-                reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
-                self.job.doc['reacted_monomers'] = len(reacted_monomers)/self.N_monomers
+                #reacted_monomers = bonded[snapshot.bonds.typeid[bonded]==1]
+
+                ids = np.arange(len(snapshot.particles.tag))
+                idx = snapshot.particles.rtag[ids]
+                particle_ids = snapshot.particles.typeid[idx]
+
+                unreacted_enes = len(ids[particle_ids==1])/2
+                self.job.doc['reacted_monomers'] = 1 - unreacted_enes/(self.N_monomers*2)
                 
+            #sim.run(10)
             sim.run(self.polymerize_period)
 
             gsd_writer.flush()
