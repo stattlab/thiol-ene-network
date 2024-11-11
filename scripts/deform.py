@@ -1,3 +1,9 @@
+#The pressure tensor will NOT be output to the deform.log file. In hoomd 4, it must be 
+# accessed via a gsd file. It will be output as pressures.gsd. Use these lines to read:
+#   import gsd.hoomd
+#   logs = gsd.hoomd.read_log(***Path to pressures.gsd***)
+#   pressure_tensors = logs["log/md/compute/ThermodynamicQuantities/pressure_tensor"]
+
 import numpy as np
 import sys
 import gsd,gsd.hoomd
@@ -149,6 +155,16 @@ def main(gsd_file_path,frame_number):
                                     mode='wb',
                                     logger=logger)
     sim.operations.writers.append(gsd_writer)
+
+    #add pressure to a new gsd writer
+    logger_pressure = hoomd.logging.Logger(categories = ['scalar','sequence'])
+    logger_pressure.add(thermo, ['pressure_tensor'])
+    gsd_writer_pressure = hoomd.write.GSD(filename=parent_path+"/pressures.gsd",
+                                          filter = hoomd.filter.Null(),
+                                          mode = "ab", 
+                                          trigger=hoomd.trigger.Periodic(10),
+                                          logger=logger_pressure)
+    sim.operations.writers.append(gsd_writer_pressure)
 
     #--------------------------Run the simulation----------------------
 
