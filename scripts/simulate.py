@@ -261,7 +261,7 @@ class Simulator():
 
         # Define and add the GSD operation.
         gsd_writer = hoomd.write.GSD(filename=self.polymerize_gsd_file,
-                                    trigger=hoomd.trigger.Periodic(100*100),#self.polymerize_period),
+                                    trigger=hoomd.trigger.Periodic(self.polymerize_period),
                                     dynamic=['property','momentum','topology','attribute'],
                                     mode='ab')
         sim.operations.writers.append(gsd_writer)
@@ -277,8 +277,8 @@ class Simulator():
 
         # table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger)
         # table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger, output=open(self.output_txt,'a'))
-        table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(100,100),logger=logger)
-        table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(100,100),logger=logger, output=open(self.output_txt,'a'))
+        table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger)
+        table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger, output=open(self.output_txt,'a'))
         sim.operations.writers.append(table_stdout)
         sim.operations.writers.append(table_file)
 

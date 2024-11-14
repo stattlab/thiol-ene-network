@@ -11,7 +11,7 @@ TODO
 
 Software requirements  
 -----------------
-modules: cuda/11.7 anaconda/3 
+modules:  anaconda/3 
 conda: python 3.10, numpy, scipy, freud, networkx, omnia::eigen3, pybind11, hoomd 4.0.1, gsd 2.X, signac 2.X, signac-flow
 (all installed on cluster in conda environment /projects/statt/software/conda/hoomd)
 
@@ -82,9 +82,19 @@ ssh statt@cc-login.campuscluster.illinois.edu
 python project.py submit -o polymerize -n 4  -- --partition eng-research-gpu --time 24:00:00 --gres gpu
 python project.py submit -o polymerize -n 10 -f '{"chain_side_reaction_probability":0.5}' -- --partition secondary --time 4:00:00 --gres gpu
 
+python project.py submit -o polymerize -n 1 -f '{"crosslinker_percent":100}' -- --partition statt --time 12:00:00 --mem 80G
+
+python project.py submit -o polymerize -n 1 -j 4da1711a9d5ba1972881efb8d9451e5b -- --partition statt --time 12:00:00 --mem 80G
+
+
+
 python project.py submit -o polymerize -n 10  -- --partition secondary --time 4:00:00 --gres gpu
 
 python project.py submit -o polymerize -n 9  -f '{"chain_side_reaction_probability":0.5}' -- --partition secondary --time 2:00:00
+
+python project.py submit -o polymerize -n 45  -- --partition secondary --time 12:00:00 --mem 80G
+
+python project.py submit -o polymerize -n 8  -- --partition secondary --time 4:00:00 --mem 80G
 
 python project.py submit -o polymerize -n 9  -f '{"crosslinker_percent":50}' -- --partition secondary --time 2:00:00
 
@@ -94,3 +104,21 @@ sinfo
 squeue -u statt 
 
 python project.py run -o polymerize -n 1 -j  0850ee96d8b53dc677a179fe581d5d06
+
+bf226910d4bdda183f897b3b5a475948
+fd999a73283b33744eac8ac26d7e82f4
+03f1d1950ec0052d8f222e7671885182
+
+bd3e76f2845d3605cc1f52d7d665635e
+bfd6a3b4e019118fd4eef6dd44a2042a
+6a56106f135aa768f712efc98ee0e290
+27a80fc90104f12d60f9534ed7cfe73f
+
+
+4da1711a9d5ba1972881efb8d9451e5b
+bd3e76f2845d3605cc1f52d7d665635e
+
+f2b94fd67d3f71121023edba0b51dc26
+fd999a73283b33744eac8ac26d7e82f4
+03f1d1950ec0052d8f222e7671885182
+0fd9628c6cd708e9dc3713bb5cb7ee16

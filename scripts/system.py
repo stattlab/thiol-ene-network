@@ -772,7 +772,7 @@ class System:
 
         positions = snapshot.particles.position[idx]
 
-        init_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
+        # init_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
 
         choices = ['propagation','chain_transfer','chain_growth']
         while len(choices) > 0:
