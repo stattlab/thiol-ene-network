@@ -774,30 +774,41 @@ class System:
 
         init_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
 
-        # radical radical_thiol with Ene = Propagation/bond formation step 
-        rc_0 = ids[particle_ids==self.radical_carbon]
-        rt_0 = ids[particle_ids==self.radical_thiol]
-        self.bond_formation(snapshot,box,positions,particle_ids,ids,idx)
-        
-        # reaction radical_carbon with Thiol  - chain transfer step
-        self.chain_transfer(snapshot,box,positions,particle_ids,ids,idx)
-        ct_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
+        choices = ['propagation','chain_transfer','chain_growth']
+        while len(choices) > 0:
+            reaction = np.random.choice(choices)
+            match reaction:
+                case 'propagation':
+                    # radical radical_thiol with Ene = Propagation/bond formation step 
+                    rc_0 = ids[particle_ids==self.radical_carbon]
+                    rt_0 = ids[particle_ids==self.radical_thiol]
+                    self.bond_formation(snapshot,box,positions,particle_ids,ids,idx)
+                    choices.remove('propagation')
+                case 'chain_transfer':
+                    # reaction radical_carbon with Thiol  - chain transfer step
+                    self.chain_transfer(snapshot,box,positions,particle_ids,ids,idx)
+                    ct_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
 
-        rc_ct = ids[particle_ids==self.radical_carbon]
-        rt_ct = ids[particle_ids==self.radical_thiol]
-    
-        #  competing chain growth radical carbond with ene reaction 
-        self.chain_growth(snapshot,box,positions,particle_ids,ids,idx)
-        cg_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-        c_cg = ids[particle_ids==self.radical_carbon]
-        rt_cg = ids[particle_ids==self.radical_thiol]
-        if (cg_radical_num < ct_radical_num):
-            print("chain growth error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(cg_radical_num))
-            print("rc b4 : " + str(rc_ct) + "rt b4 : " + str(rt_ct))
-            print("rc : " + str(rc_cg) + "rt : " + str(rt_cg))
-            print("ct")
-            print("ct")
-            print("ct")
+                    rc_ct = ids[particle_ids==self.radical_carbon]
+                    rt_ct = ids[particle_ids==self.radical_thiol]
+                    choices.remove('chain_transfer')
+                case 'chain_growth':
+                    #  competing chain growth radical carbond with ene reaction 
+                    self.chain_growth(snapshot,box,positions,particle_ids,ids,idx)
+                    cg_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
+                    c_cg = ids[particle_ids==self.radical_carbon]
+                    rt_cg = ids[particle_ids==self.radical_thiol]
+                    # if (cg_radical_num < ct_radical_num):
+                    #     print("chain growth error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(cg_radical_num))
+                    #     print("rc b4 : " + str(rc_ct) + "rt b4 : " + str(rt_ct))
+                    #     print("rc : " + str(rc_cg) + "rt : " + str(rt_cg))
+                    #     print("ct")
+                    #     print("ct")
+                    #     print("ct")
+                    choices.remove('chain_growth')
+                case _:
+                    print("Error in propagate_reactions. Unknown reaction requested")
+
         # termination reactions, i.e radical-radical interactions 
         # self.termination_reactions(snapshot,box,positions,particle_ids,ids,idx)
 
