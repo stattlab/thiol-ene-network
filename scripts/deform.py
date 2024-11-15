@@ -147,7 +147,6 @@ def main(gsd_file_path,frame_number):
 
 
     logger = hoomd.logging.Logger(categories=['sequence'])
-
     logger.add(thermo, ['pressure_tensor'])
     gsd_writer = hoomd.write.GSD(filename=parent_path + '/deform.gsd',
                                     trigger=hoomd.trigger.Periodic(int(deform_time/50)),
