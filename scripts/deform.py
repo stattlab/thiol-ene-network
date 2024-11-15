@@ -61,7 +61,7 @@ def main(gsd_file_path,frame_number):
     step_size = 100
     delta_lam = 0.001
     # NVT deformation
-    lam = 1.5
+    lam = 3.0
     deform_time = (lam - 1) / delta_lam * step_size
     box_variant = hoomd.variant.Ramp(A=0,B=1,t_start=sim.timestep,t_ramp=int(deform_time))
     initial_box = sim.state.box
@@ -160,7 +160,7 @@ def main(gsd_file_path,frame_number):
     logger_pressure.add(thermo, ['pressure_tensor'])
     gsd_writer_pressure = hoomd.write.GSD(filename=parent_path+"/pressures.gsd",
                                           filter = hoomd.filter.Null(),
-                                          mode = "ab", 
+                                          mode = "wb", 
                                           trigger=hoomd.trigger.Periodic(10),
                                           logger=logger_pressure)
     sim.operations.writers.append(gsd_writer_pressure)
