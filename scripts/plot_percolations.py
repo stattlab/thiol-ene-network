@@ -41,7 +41,6 @@ def atom_bonds(bonds):
             neighbors[item].remove(item)
     return neighbors
 
-
 def connected_components(lists):
     R"""
     merges lists with common elements
@@ -106,6 +105,31 @@ def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
         fig.update_yaxes(range=yaxis_range)
     return fig
 
+def trim_data_arrays(data0, data1):
+    # trim the arrays such that they have the same length, if one of the two arrays
+    # was trimmed periodically
+    j = 0
+    if len(data0) > len(data1):
+        newData = np.zeros(len(data1))
+        period = len(data0) / len(data1)
+        if period != int(period):
+            print("Period is not an integer! Unsure how polymerize.gsd was trimmed")
+            exit(0)
+        else:
+            for i in range(len(data1)):
+                newData[i] = data0[int(i*period)]
+            return newData, data1
+    else:
+        newData = np.zeros(len(data0))
+        period = len(data1) / len(data0)
+        if period != int(period):
+            print("Period is not an integer! Unsure how polymerize.gsd was trimmed")
+            exit(0)
+        else:
+            for i in range(len(data0)):
+                newData[i] = data1[int(i*period)]
+            return data0, newData
+
 plt.rcParams["font.family"] = "Avenir"
 fig, ax = plt.subplots(1,1,sharey=False)
 color = iter(cm.rainbow(np.linspace(0, 1, 11)))
@@ -158,13 +182,26 @@ for job in project:
             # print(np.shape(Lx_arr))
 
             ''' analyze '''
-            frame = data[1:,0]
+            frame_number = data[1:,0]
             # percolation dimension (0-not percolated, 1-1D percolation, 2-2D percolation, 3-3D percolation)
             perc_dim = data[1:,1]
             # size of the percolating cluster
             perc_size = data[1:,2]
             # number of disconnected clusters in the system
             non_perc_clusters = data[1:,3]
+
+            # get the conversion from the polymerization gsd
+            traj = gsd.hoomd.open(job.fn('polymerize.gsd'))
+            for frame in traj:
+                ids = np.arange(len(frame.particles.charge))
+                idx = np.arange(len(frame.particles.charge))
+                particle_ids = frame.particles.typeid[idx]
+
+                unreacted_enes = len(ids[particle_ids==1])/2
+
+                conversion = 1 - unreacted_enes/(int(job.sp["N_monomers"])*2)
+            # trim the trajectory according to how many conversion data points we have
+            conversion, perc_size = trim_data_arrays(conversion, perc_size)
 
             # ### jsons ------------------------------------------
             # json_dir = "./workspace/" + str(job) + "/json/"
@@ -196,9 +233,9 @@ for job in project:
                 os.mkdir(plot_dir)
 
             # ax.plot(frame,perc_dim,linewidth=5,label=r'')
-            print(frame)
+            print(conversion)
             print(perc_size)
-            ax.plot(frame,perc_size,linewidth=2)
+            ax.plot(conversion,perc_size,linewidth=2)
             # ax.plot(frame,non_perc_clusters,linewidth=5,label=r'$\sigma_{xx}$')
             plt.savefig(plot_dir + 'percolation.png')
 
