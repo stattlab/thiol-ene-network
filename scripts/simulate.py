@@ -150,6 +150,10 @@ class Simulator():
 
             sim.run(1000)
 
+        while fire.converged == False:
+            sim.run(100)
+            print("Energy minimization not converged, running 100 additional steps...")
+
         fire.forces = []
         del fire
 
