@@ -56,129 +56,137 @@ class Simulator():
 
 
     def equilibrate(self):
-        if "custom_action" in self.job.sp["polymerization_method"]:
-            import scripts.customAction.polymerize as polymerize
+        count = 0
+        while count < 3:
+            try:
+                if "custom_action" in self.job.sp["polymerization_method"]:
+                    import scripts.customAction.polymerize as polymerize
 
-        S = System()
-        frame = S.create_initial_configuration(density=self.rho,
-                                            N_monomers = self.N_monomers,
-                                            monomer_size=self.monomer_size,
-                                            extender_size=self.extender_size,
-                                            crosslinker=self.crosslinker_percent)
-        
+                S = System()
+                frame = S.create_initial_configuration(density=self.rho,
+                                                    N_monomers = self.N_monomers,
+                                                    monomer_size=self.monomer_size,
+                                                    extender_size=self.extender_size,
+                                                    crosslinker=self.crosslinker_percent)
+                
 
-        with gsd.hoomd.open(name=self.equi_gsd_file, mode='w') as f:
-            
-            f.append(frame)
+                with gsd.hoomd.open(name=self.equi_gsd_file, mode='w') as f:
+                    
+                    f.append(frame)
 
-        # try:
-        #     cpu = hoomd.device.GPU()
-        # except:
-        #     cpu = hoomd.device.CPU()
-        if self.job.sp["polymerization_method"] == "custom_action_GPU" or self.job.sp["polymerization_method"] == "custom_action_GPU_bulk":
-            device = hoomd.device.GPU(notice_level=3)
-        else:
-            device = hoomd.device.CPU(notice_level=3)
-        print(self.job.sp["polymerization_method"]," is being run on ",device)
+                # try:
+                #     cpu = hoomd.device.GPU()
+                # except:
+                #     cpu = hoomd.device.CPU()
+                if self.job.sp["polymerization_method"] == "custom_action_GPU" or self.job.sp["polymerization_method"] == "custom_action_GPU_bulk":
+                    device = hoomd.device.GPU(notice_level=3)
+                else:
+                    device = hoomd.device.CPU(notice_level=3)
+                print(self.job.sp["polymerization_method"]," is being run on ",device)
 
-        sim = hoomd.Simulation(device=device, seed=1)
-        sim.create_state_from_gsd(filename=self.equi_gsd_file)
+                sim = hoomd.Simulation(device=device, seed=1)
+                sim.create_state_from_gsd(filename=self.equi_gsd_file)
 
-        if len(sim.state.angle_types)==0:
-            FJ_system=True
-        else:
-            FJ_system=False
+                if len(sim.state.angle_types)==0:
+                    FJ_system=True
+                else:
+                    FJ_system=False
 
-        integrator = hoomd.md.Integrator(dt=0.005)
-        cell = hoomd.md.nlist.Cell(buffer=0.4)
+                integrator = hoomd.md.Integrator(dt=0.005)
+                cell = hoomd.md.nlist.Cell(buffer=0.4)
 
-        lj = hoomd.md.pair.LJ(nlist=cell)
+                lj = hoomd.md.pair.LJ(nlist=cell)
 
-        lj.params[(S.particles_types, S.particles_types)] = dict(epsilon=1.0,sigma=1.0)
-        lj.r_cut[S.particles_types, S.particles_types] = 2.5
+                lj.params[(S.particles_types, S.particles_types)] = dict(epsilon=1.0,sigma=1.0)
+                lj.r_cut[S.particles_types, S.particles_types] = 2.5
 
-        lj.params[(S.particles_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
-        lj.r_cut[S.particles_types, 'Dummy'] = 0
-        lj.mode = 'shift'
+                lj.params[(S.particles_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
+                lj.r_cut[S.particles_types, 'Dummy'] = 0
+                lj.mode = 'shift'
 
-        fene = hoomd.md.bond.FENEWCA()
-        fene.params[S.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
-        fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
+                fene = hoomd.md.bond.FENEWCA()
+                fene.params[S.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
+                fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
 
-        gaussian = hoomd.md.pair.DPDConservative(nlist=cell)
-        gaussian.params[(S.particles_types,S.particles_types)] = dict(A=50.0)
-        gaussian.r_cut[S.particles_types,S.particles_types] = 1.0
+                gaussian = hoomd.md.pair.DPDConservative(nlist=cell)
+                gaussian.params[(S.particles_types,S.particles_types)] = dict(A=50.0)
+                gaussian.r_cut[S.particles_types,S.particles_types] = 1.0
 
-        gaussian.params[(S.particles_types, 'Dummy')] = dict(A=0.0)
-        gaussian.r_cut[S.particles_types, 'Dummy'] = 0
-        gaussian.mode = 'none'
+                gaussian.params[(S.particles_types, 'Dummy')] = dict(A=0.0)
+                gaussian.r_cut[S.particles_types, 'Dummy'] = 0
+                gaussian.mode = 'none'
 
-        harmonic = hoomd.md.bond.Harmonic()
-        harmonic.params[S.bond_types] = dict(k=100.0, r0=0.96)
-        harmonic.params['Dummy'] = dict(k=0.0, r0=0.0)
-        
-        if FJ_system==False:
-            cosinesq = hoomd.md.angle.CosineSquared()
-            cosinesq.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
-            cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
+                harmonic = hoomd.md.bond.Harmonic()
+                harmonic.params[S.bond_types] = dict(k=100.0, r0=0.96)
+                harmonic.params['Dummy'] = dict(k=0.0, r0=0.0)
+                
+                if FJ_system==False:
+                    cosinesq = hoomd.md.angle.CosineSquared()
+                    cosinesq.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
+                    cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
 
-        types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1]) # everything but "Dummy" particles
+                types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1]) # everything but "Dummy" particles
 
-        print("Simulation set up, starting energy minimization...")
+                print("Simulation set up, starting energy minimization...")
 
-        nve = hoomd.md.methods.ConstantVolume(filter=types_to_integrate)
-        fire = hoomd.md.minimize.FIRE(dt=0.05,
-                                    force_tol=1e-2,
-                                    angmom_tol=1e-2,
-                                    energy_tol=1e-4)
+                #minimization with Gaussian pair potential and harmonic bonds
+                nve = hoomd.md.methods.ConstantVolume(filter=types_to_integrate)
+                fire = hoomd.md.minimize.FIRE(dt=0.05,
+                                            force_tol=1e-2,
+                                            angmom_tol=1e-2,
+                                            energy_tol=1e-4)
+                fire.methods.append(nve)
+                fire.forces = [gaussian, harmonic]
+                sim.operations.integrator = fire
+                sim.run(1000)
 
+                #minimization with Gaussian pair potential and FENE bonds
+                fire.forces = [gaussian,fene]
+                sim.run(1000)
 
-        fire.methods.append(nve)
-        fire.forces = [gaussian, harmonic]
-        sim.operations.integrator = fire
+                #minimization with lj pair potential and FENE bonds
+                fire.forces = [lj,fene]
+                sim.run(1000)
 
-        sim.run(1000)
+                #optional minimization with angle potential
+                if FJ_system==False:
+                    fire.forces = [lj,fene,cosinesq]
+                    sim.run(1000)
 
-        fire.forces = [gaussian,fene]
-        sim.run(1000)
+                fire.forces = []
+                del fire
 
-        fire.forces = [lj,fene]
+                print("Simulation initialized, starting equilibration...")
 
-        sim.run(1000)
-        if FJ_system==False:
-            fire.forces = [lj,fene,cosinesq]
+                # Nose-Hoover
+                #nvt = hoomd.md.methods.ConstantVolume(filter=types_to_integrate,
+                #    thermostat=hoomd.md.methods.thermostats.MTTK(kT=kT,tau=0.005*100))
+                #integrator.methods.append(nvt)
 
-            sim.run(1000)
+                langevin = hoomd.md.methods.Langevin(filter=types_to_integrate, kT=self.kT,default_gamma=0.1)
 
-        while fire.converged == False:
-            sim.run(100)
-            print("Energy minimization not converged, running 100 additional steps...")
+                integrator.methods.append(langevin)
+                
+                if FJ_system==False:
+                    integrator.forces = [lj,fene,cosinesq]
+                else:
+                    integrator.forces = [lj,fene]
 
-        fire.forces = []
-        del fire
+                sim.operations.integrator = integrator
+                sim.state.thermalize_particle_momenta(filter=types_to_integrate, kT=self.kT)
 
-        print("Simulation initialized, starting equilibration...")
-
-        # Nose-Hoover
-        #nvt = hoomd.md.methods.ConstantVolume(filter=types_to_integrate,
-        #    thermostat=hoomd.md.methods.thermostats.MTTK(kT=kT,tau=0.005*100))
-        #integrator.methods.append(nvt)
-
-        langevin = hoomd.md.methods.Langevin(filter=types_to_integrate, kT=self.kT,default_gamma=0.1)
-
-        integrator.methods.append(langevin)
-        
-        if FJ_system==False:
-            integrator.forces = [lj,fene,cosinesq]
-        else:
-            integrator.forces = [lj,fene]
-
-        sim.operations.integrator = integrator
-        sim.state.thermalize_particle_momenta(filter=types_to_integrate, kT=self.kT)
-
-        sim.run(5000)
-        hoomd.write.GSD.write(state=sim.state, mode='wb', filename=self.equi_gsd_file)
-        print("writing gsd file to:",self.equi_gsd_file)
+                sim.run(5000)
+                hoomd.write.GSD.write(state=sim.state, mode='wb', filename=self.equi_gsd_file)
+                print("writing gsd file to:",self.equi_gsd_file)
+            except Exception as e:
+                print("Error encountered:",e)
+                count += 1
+                print("trying to initialize again, attempt number ",count)
+            else:
+                break
+        if count == 3:
+            print("Failed to initialize, exiting")
+            exit(1)
 
     def polymerize(self):
         if "custom_action" in self.job.sp["polymerization_method"]:
