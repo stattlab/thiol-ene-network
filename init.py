@@ -34,7 +34,7 @@ def main():
         "monomer_size":[0],
         "extender_size":[0],
         "radical_percent":[1.0],
-        "chain_side_reaction_probability": [0],#0.0,0.5,0.6,0.9],
+        "chain_side_reaction_probability": [0.15],#0.0,0.5,0.6,0.9],
         "chain_transfer_probability": [0.1],
         "thiol_reaction_probability": [1],
         "polymerize_period": [100],#,1,1000000000],

@@ -1,1 +1,1 @@
-{"N_extenders": 2500, "N_crosslinkers": 3750, "N_total": 43750, "L": 37.800511755296476, "reacted_monomers": 0, "average_polymerization_time": 0, "average_period_time": 0, "avg_polymerization_time": 0, "avg_integration_time": 0, "integration_tps": 0}
+{"N_extenders": 2500, "N_crosslinkers": 3750, "N_total": 43750, "L": 37.800511755296476, "reacted_monomers": 0.90735, "average_polymerization_time": 0, "average_period_time": 0, "avg_polymerization_time": 0.08102758176338345, "avg_integration_time": 13.158911082417228, "integration_tps": 7.601290952590763}

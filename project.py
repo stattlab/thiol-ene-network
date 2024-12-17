@@ -25,11 +25,7 @@ def equilibrated(job):
 
 @MyProject.label
 def reacted(job):
-    # return job.doc['reacted_monomers']>0.9
-    if job.isfile("polymerize.gsd"):
-        return os.path.getsize(job.fn("polymerize.gsd")) > 500
-    else:
-        return False
+    return job.doc['reacted_monomers']>0.9
 
 @MyProject.label
 def reacting(job):
