@@ -2,13 +2,10 @@ import sys, os, re
 import numpy as np
 import signac
 import json
-#import matplotlib
-#import matplotlib.pyplot as plt
-#import matplotlib.cm
 import gsd, gsd.hoomd 
 import networkx as nx 
 from collections import defaultdict
-#from matplotlib.pyplot import cm
+
 
 
 """
@@ -117,8 +114,7 @@ for job in project:
             
             
             for atom, neighbors in all_bonds.items():
-                bond_histogram[int(len(neighbors))] += 1
-           d     
+                bond_histogram[int(len(neighbors))] += 1   
                 if len(neighbors) == 2:
                     neighbor_types = [type_map[i] for i in neighbors]
                     # if there are two neighbors check if it's alternating 

@@ -68,28 +68,6 @@ def cyclopropyl_groups(a_bonds):
                     cyclo_keys_flat = [x for xs in cyclo_keys for x in xs]
     return(cyclopropyl_count, cyclo_keys)
 
-
-"""
-frame.bonds.group gives a np.array that is of form [[a,b],[c,d],[e,f],[a,g],...] 
-where a is bonded to b, c is bonded to d, etc.
-
-atom_bonds finds all atoms to which a given atom 'a' is bonded to
-args: frame.bonds.group
-
-returns: dictionary of atoms and the atoms they are bonded to
-{atom_no: [bonded1, bonded2, ...], ...}
-"""
-def atom_bonds(bonds):
-    # create a default dictionary with an element returning a list if no neighbors
-    neighbors = defaultdict(list) 
-    # add every instance of an atom in a bond to the dictionary
-    for each in bonds:
-        for item in each:
-            neighbors[item].extend(each)
-            # remove the atom itself from the list of atoms bonded to it
-            neighbors[item].remove(item)
-    return neighbors
-
 # make a default figure box 
 def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
     fig = go.Figure()

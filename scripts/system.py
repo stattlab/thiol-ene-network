@@ -8,7 +8,7 @@ class System:
     def __init__(self):
         ## define chemical tags ----
         self.particles_types = ['Thiol','Ene_C','RSulfur','RCarbon', 'Sulfur', 'Carbon','C','D','Dummy']
-        ## ---------------[  0  , 1  ,     2     ,  3 ,     4     ,   5]
+        ## ---------------      [  0  , 1  ,     2     ,  3 ,     4     ,   5]
         self.bond_types = ['-SH','New','CC_Double','-S-','CC_Single','Dummy']
         self.angle_types = ['PE','Dummy']
 
