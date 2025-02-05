@@ -41,6 +41,10 @@ def reacted(job):
 def reacting(job):
     return job.isfile("polymerize.gsd")
 
+@MyProject.label
+def deformed(job):
+    return job.isfile("deform.gsd")
+
 #-----------------------
 # Analysis labels
 #-----------------------
@@ -48,14 +52,6 @@ def reacting(job):
 # def percolation_analyzed(job):
 #     return job.isfile('percolation_data.txt')
 
-# def trajectory_conversion_analyzed(job):
-#     if (job.isfile('trajectory_conversion.txt') and \
-#             job.isfile('trajectory_molecule_size.txt') and \
-#             job.isfile('molecule_size_histogram.json')):
-#         #check if the last frame analyzed is the same as the last frame simulated
-        
-#     else:
-#         return False
 
 #-----------------------
 # Simulation operations
@@ -94,6 +90,14 @@ def polymerize(job):
     print("now conducting trajectory conversion analysis")
     os.system('python3 ./scripts/trajectory_conversion.py')
     print('analyzed the trajectory conversion of ', job.id)
+
+@MyProject.pre(reacted)
+@MyProject.post(deformed)
+@MyProject.operation
+def deform(job):
+    import scripts.deform
+    scripts.deform.main(job.fn('polymerize.gsd'),-1)
+    print('deformed: ',job.id)
 
 #-----------------------
 # Analysis operations
