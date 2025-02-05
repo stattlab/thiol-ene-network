@@ -168,3 +168,24 @@ slurm-*.out
 #signac statepoint and job docs
 signac_statepoint.json
 signac_job_document.json
+
+#Hoomd simulation gsds and log files
+*.gsd
+*.log
+
+#Data/figures
+*.png
+*.pdf
+*.jpeg
+*.jpg
+*.svg
+*.mp4
+*.gif
+*.mov
+
+#SLURM output files
+slurm-*.out
+
+#Analysis outputs
+*.csv
+*.txt
