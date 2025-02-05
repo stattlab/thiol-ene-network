@@ -40,7 +40,9 @@ def conversion_molecule_sizes(N_0, trajectory):
                 molec_size_hist[j] = molec_size_hist.get(j, 0) + 1
     return traj_conversion, traj_molecule_sizes, molec_size_hist
 
-direc = "/Users/rithwikghanta/Documents/Documents/research/network_polymerization/workspace/"
+# direc = "/Users/rithwikghanta/Documents/Documents/research/network_polymerization/workspace/"
+project = signac.get_project()
+direc = project.root_directory() + 'workspace/'
 for job_id in os.listdir(direc):
     print(job_id)
     jdir = direc + job_id
@@ -79,5 +81,5 @@ for job_id in os.listdir(direc):
             f.write(line)
 
     # write final frame molecule size counts into file
-    with open(jdir + 'molecule_size_histogram.json', "w") as f:
+    with open(jdir + '/molecule_size_histogram.json', "w") as f:
         json.dump(m_s_h_final, f)
