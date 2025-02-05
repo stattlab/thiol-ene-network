@@ -10,6 +10,7 @@ import flow
 from flow import FlowProject
 import os
 import subprocess
+import numpy as np
 
 class MyProject(FlowProject):
     pass
@@ -25,13 +26,40 @@ def equilibrated(job):
 
 @MyProject.label
 def reacted(job):
-    return job.doc['reacted_monomers']>0.9
+    # return job.doc['reacted_monomers']>0.9
+    try:
+        conversion_data = np.genfromtxt(job.fn('trajectory_conversion.txt'), comments="#", delimiter=" ")
+    except FileNotFoundError:
+        return False
+    cutoff = 0.001
+    if float(conversion_data[-50,1]) - float(conversion_data[-1,1]) < cutoff:
+        return True
+    else:
+        return False
 
 @MyProject.label
 def reacting(job):
     return job.isfile("polymerize.gsd")
 
+#-----------------------
+# Analysis labels
+#-----------------------
 
+# def percolation_analyzed(job):
+#     return job.isfile('percolation_data.txt')
+
+# def trajectory_conversion_analyzed(job):
+#     if (job.isfile('trajectory_conversion.txt') and \
+#             job.isfile('trajectory_molecule_size.txt') and \
+#             job.isfile('molecule_size_histogram.json')):
+#         #check if the last frame analyzed is the same as the last frame simulated
+        
+#     else:
+#         return False
+
+#-----------------------
+# Simulation operations
+#-----------------------
 @MyProject.post(equilibrated)
 @MyProject.operation
 def equilibrate(job):
@@ -63,8 +91,20 @@ def polymerize(job):
     sinit = Simulator(job)
     sinit.polymerize()
     print("reacted",job.id)
+    print("now conducting trajectory conversion analysis")
+    os.system('python3 ./scripts/trajectory_conversion.py')
+    print('analyzed the trajectory conversion of ', job.id)
 
-# Analysis
+#-----------------------
+# Analysis operations
+#-----------------------
+# @MyProject.pre(reacting)
+# @MyProject.post(trajectory_conversion_analyzed)
+# @MyProject.operation
+# def analyze_trajectory_conversion(job):
+#     os.system('python3 ./scripts/trajectory_conversion.py')
+
+
 
 
 
