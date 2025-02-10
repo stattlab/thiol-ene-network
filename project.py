@@ -31,8 +31,8 @@ def reacted(job):
         conversion_data = np.genfromtxt(job.fn('trajectory_conversion.txt'), comments="#", delimiter=" ")
     except FileNotFoundError:
         return False
-    cutoff = 0.001
-    if float(conversion_data[-50,1]) - float(conversion_data[-1,1]) < cutoff:
+    cutoff = 0.00
+    if float(conversion_data[-1,1]) - float(conversion_data[-50,1]) < cutoff:
         return True
     else:
         return False
@@ -43,7 +43,7 @@ def reacting(job):
 
 @MyProject.label
 def deformed(job):
-    return job.isfile("deform.gsd")
+    return job.isfile("deform.gsd") and os.path.getsize(job.fn('deform.log')) > 100
 
 #-----------------------
 # Analysis labels
