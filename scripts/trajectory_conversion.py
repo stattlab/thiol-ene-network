@@ -42,7 +42,7 @@ def conversion_molecule_sizes(N_0, trajectory):
 
 # direc = "/Users/rithwikghanta/Documents/Documents/research/network_polymerization/workspace/"
 project = signac.get_project()
-direc = project.root_directory() + 'workspace/'
+direc = project.fn('') + 'workspace/'
 for job_id in os.listdir(direc):
     print(job_id)
     jdir = direc + job_id
