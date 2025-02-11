@@ -31,8 +31,8 @@ def reacted(job):
         conversion_data = np.genfromtxt(job.fn('trajectory_conversion.txt'), comments="#", delimiter=" ")
     except FileNotFoundError:
         return False
-    cutoff = 0.00
-    if float(conversion_data[-1,1]) - float(conversion_data[-50,1]) < cutoff:
+    cutoff = 0.10
+    if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) < cutoff:
         return True
     else:
         return False
