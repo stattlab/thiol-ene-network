@@ -44,18 +44,42 @@ def conversion_molecule_sizes(N_0, trajectory):
 project = signac.get_project()
 direc = project.fn('') + 'workspace/'
 for job_id in os.listdir(direc):
-    print(job_id)
+    
     jdir = direc + job_id
     input_file = direc + job_id + "/polymerize.gsd"
+
     if not os.path.isfile(input_file):
         continue
     
+    '''
+    if os.path.isfile(jdir + "/trajectory_conversion.txt"):
+        continue
+    '''
+    with open(jdir + "/signac_statepoint.json") as f:
+            data = json.load(f)
+            if data["chain_side_reaction_probability"] == 0.15:
+                continue
+
+    print(job_id)
+
     # open the polymerized gsd file's trajectory (list of frames)
     trajectory = gsd.hoomd.open(input_file)
+
+    ttec = thiol_ene_conversion(trajectory)
+
+    with open(jdir + "/trajectory_thiol_ene_conversion.txt", "w") as f:
+        f.write("frame thiol_conversion ene_conversion\n")
+        for x in ttec:
+            line = str(x[0]) + " " + str(x[1]) + " " + str(x[2]) + "\n"
+            f.write(line)
+
     # get the dummy_bond_id and number of bonds from the initial frame
     initial_frame = trajectory[0]
     dummy_id = len(initial_frame.bonds.types)-1
     bonds = initial_frame.bonds.group[initial_frame.bonds.typeid!=dummy_id] # dummy type bond 
+    
+
+    
     # find all strands in the box
     all_strands = connected_components(bonds)
     # count the number of molecules
@@ -82,4 +106,9 @@ for job_id in os.listdir(direc):
 
     # write final frame molecule size counts into file
     with open(jdir + '/molecule_size_histogram.json', "w") as f:
+    with open(jdir + '/molecule_size_histogram.json', "w") as f:
         json.dump(m_s_h_final, f)
+
+        
+    
+    

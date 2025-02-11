@@ -186,6 +186,6 @@ def parse_final_frame(input_file):
     print("sizes of clusters in network",sizes)
     
 
-
+direc = ""
 
 

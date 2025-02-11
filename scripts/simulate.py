@@ -428,7 +428,7 @@ class Simulator():
                 self.job.doc["avg_integration_time"] = np.average(integration_times)
                 self.job.doc["integration_tps"] = np.average(integration_tps)
 
-                if self.job.doc["reacted_monomers"] > 0.925:
+                if self.job.doc["reacted_monomers"] > 0.975:
                     exit()
 
     # def run(self):
