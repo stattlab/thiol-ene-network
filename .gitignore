@@ -188,4 +188,3 @@ slurm-*.out
 
 #Analysis outputs
 *.csv
-*.txt
