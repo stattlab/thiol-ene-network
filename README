@@ -102,7 +102,7 @@ replica_index
 
 python project.py submit -o polymerize -n 9  -f '{"replica_index":4, "chain_side_reaction_probability": 0.15}' -- --partition statt --time 12:00:00 --mail-type ALL --mail-user rghanta2@illinois.edu
 
-python project.py submit -o polymerize -n 8 -- --partition statt --time 12:00:00 --mail-type ALL --mail-user rghanta2@illinois.edu
+python project.py submit -o polymerize -n 8 -- --partition statt --time 24:00:00 --mail-type ALL --mail-user rghanta2@illinois.edu
 
 other cluster things:
 sinfo 

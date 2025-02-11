@@ -20,6 +20,7 @@ import plotly.io as pio
 pio.kaleido.scope.mathjax = None
 
 
+
 # make a default figure box 
 def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
     fig = go.Figure()
@@ -59,21 +60,8 @@ project = signac.get_project()
 csr_p =  0
 crosslinkers = [0,12.5,25,37.5,50,62.5,75,87.5,100]
 color = iter(cm.rainbow(np.linspace(0, 1, 11)))
-fig = make_plotly_fig(xaxis="Polymerization Cycle", yaxis = "Percolation Dimension")
-fig_2 = go.Figure()
+fig = make_plotly_fig(xaxis="Crosslinker", xaxis_range=[-2,102], yaxis = "Number Dangling Ends")
 
-fig_2.update_layout(
-        font_family="Avenir Medium",
-        font_color="black",
-        plot_bgcolor='white',
-        legend_font_size=15,
-        xaxis_title="Polymerization Cycle")
-
-fig_2.update_xaxes(range=[0,1500],showgrid=False, tickfont_size = 25, title_font_size=25)
-fig_2.update_yaxes(showgrid=False, 
-                 zeroline=True, zerolinecolor='black', zerolinewidth=3,
-                 showticklabels=False)
-fig_2.update_layout(height=200, width = 500, plot_bgcolor='white', showlegend = False)
 
 for cl in crosslinkers:
     c = next(color)
@@ -90,37 +78,48 @@ for cl in crosslinkers:
                 continue
             if (statepoint["crosslinker_percent"]!=cl):
                 continue
-        # if the job has been deformed
-        if not job.isfile('percolation_data.txt'):
-            continue
-        ''' initial look '''
-        df = pd.read_table(job.fn('percolation_data.txt'), sep=" ")
+
+        # gel fractions
+        df = pd.read_table(job.fn('cluster_sizes.txt'), sep=" ")
         df.dropna(inplace=True, axis=1)
-        df.columns = ["frame", "percolation_dimension", "largest_cluster", "molecule_num"]
+        df.columns = ["cluster_size", "count"]
         #percolation_dimension_set.append(list(df["largest_cluster"]))
         #percolation_dimension_frames.append(list(df["frame"]))
-        first.append(df[df["percolation_dimension"]>2]["frame"].min())
-        fig.add_trace(go.Scatter(
-            x=np.array(range(0,len(df["frame"]))), y = df["largest_cluster"], mode = "markers", marker = dict(color=c, size=8, opacity=.6),
+        gf = float(df["cluster_size"].max() / sum(df["cluster_size"]*df["count"]))
+        if cl==87.5 and gf < 0.1:
+            continue
+
+        df = pd.read_table(job.fn('dangle_sizes.txt'), sep=" ")
+        df.columns = ["cluster_size", "count"]
+        first.append(sum(df["count"]))
+
+        
+        fig2 = make_plotly_fig(xaxis="Dangle Size", yaxis = "Number")
+        fig2.add_trace(go.Bar(x=[str(i) for i in df["cluster_size"]], y=df["count"],marker= dict(color = c, line=dict(color=c))))
+    
+        df = pd.read_table(job.fn('strand_sizes.txt'), sep=" ")
+        df.dropna(inplace=True, axis=1)
+        df.columns = ["strand_sizes", "count"]
+
+    fig2.write_image("./plots/dangling_ends/TE_" + str(cl) + ".pdf")
+    #fig2.show()
+    
+    print(first)
+    first_std = np.array(first).std(axis=0).tolist()
+    
+    fig.add_trace(go.Scatter(
+        x=[cl],
+        y=[sum(first)/len(first)],
+        marker = dict(color=c, size=8),
+        error_y=dict(
+            type='data',
+            symmetric=True,
+            array=[first_std])
         ))
-        break
-    '''
-    minimum_frames = min([len(pds) for pds in percolation_dimension_set])
-    percolation_dimension_set = [pds[:minimum_frames] for pds in percolation_dimension_set]
-    percolation_dimensions = np.array(percolation_dimension_set).mean(axis=0).tolist()
-    percolation_dimensions_std = np.array(percolation_dimension_set).std(axis=0).tolist()
+    
 
-    
-    
-    print(sum(first)/len(first)))))'''
-    fig_2.add_trace(go.Scatter(x=[sum(first)/len(first)], y=[0], marker = dict(color=c, size=12)))
-fig.write_image("./plots/ThiolEnePercolation.pdf")
-fig_2.write_image("./plots/TEPercolation_nline.pdf")
+fig.write_image("./plots/dangling_TE.pdf")
 fig.show()
-fig_2.show()
-
     
-        
-        
 
 
