@@ -55,6 +55,9 @@ def deformed(job):
 def defect_analyzed(job):
     return job.isfile('loop_counts.txt')
 
+def xlink_rdf_analyzed(job):
+    return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
+
 def stress_strain_analyzed(job):
     return job.isfile('stress_strain.txt')
 
@@ -123,6 +126,15 @@ def defect_analysis(job):
     import scripts.network_properties
     scripts.network_properties.defect_analysis(job.id)
     print('analyzed defectivity: ',job.id)
+
+@MyProject.pre(reacted)
+@MyProject.post(xlink_rdf_analyzed)
+@MyProject.operation
+def xlink_rdf_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.xlink_rdf_analysis(job.id)
+    print('analyzed crosslink rdfs: ',job.id)
+
 
 @MyProject.pre(deformed)
 @MyProject.post(stress_strain_analyzed)
