@@ -52,6 +52,8 @@ def deformed(job):
 # def percolation_analyzed(job):
 #     return job.isfile('percolation_data.txt')
 
+def defect_analyzed(job):
+    return job.isfile('loop_counts.txt')
 
 #-----------------------
 # Simulation operations
@@ -108,7 +110,13 @@ def deform(job):
 # def analyze_trajectory_conversion(job):
 #     os.system('python3 ./scripts/trajectory_conversion.py')
 
-
+@MyProject.pre(reacted)
+@MyProject.post(defect_analyzed)
+@MyProject.operation
+def defect_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.defect_analysis(job.id)
+    print('analyzed defectivity: ',job.id)
 
 
 
