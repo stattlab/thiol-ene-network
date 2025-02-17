@@ -523,7 +523,7 @@ def xlink_rdf_analysis(job_id):
 
     # for job_id in os.listdir(direc):
     jdir = direc + job_id
-    input_file = direc + job_id + "/polymerize_trunc.gsd"
+    input_file = direc + job_id + "/polymerize.gsd"
     if not os.path.isfile(input_file):
         raise FileNotFoundError("File not found")
         exit()
