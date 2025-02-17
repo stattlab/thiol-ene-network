@@ -55,6 +55,12 @@ def deformed(job):
 def defect_analyzed(job):
     return job.isfile('loop_counts.txt')
 
+def stress_strain_analyzed(job):
+    return job.isfile('stress_strain.txt')
+
+def modulus_analyzed(job):
+    return job.isfile('youngs_modulus.txt')
+
 #-----------------------
 # Simulation operations
 #-----------------------
@@ -118,7 +124,21 @@ def defect_analysis(job):
     scripts.network_properties.defect_analysis(job.id)
     print('analyzed defectivity: ',job.id)
 
+@MyProject.pre(deformed)
+@MyProject.post(stress_strain_analyzed)
+@MyProject.operation
+def deformation_analysis(job):
+    import scripts.plot_deforms
+    scripts.plot_deforms.analyze_stress_strain(job.id)
+    print('analyzed stress-strain: ',job.id)
 
+@MyProject.pre(stress_strain_analyzed)
+@MyProject.post(modulus_analyzed)
+@MyProject.operation
+def modulus_analysis(job):
+    import scripts.plot_deforms
+    scripts.plot_deforms.analyze_modulus(job.id)
+    print('analyzed modulus: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()

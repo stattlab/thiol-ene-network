@@ -106,45 +106,106 @@ def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
         fig.update_yaxes(range=yaxis_range)
     return fig
 
-plt.rcParams["font.family"] = "Avenir"
-fig, ax = plt.subplots(1,1,sharey=False)
-color = iter(cm.rainbow(np.linspace(0, 1, 11)))
+def analyze_youngs_modulus(jobid):
+    project = signac.get_project()
+    job = project.open_job(id=jobid)
+    data = np.genfromtxt(job.fn('stress_strain.txt'))
+    strain = data[:,0]
+    stress = data[:,1]
+    #---------------------------------------------------------------------
+    #                    Calculate and save Young's Modulus
+    #---------------------------------------------------------------------
+    # find the linear region of the stress-strain curve up to 2% (https://www.sciencedirect.com/science/article/pii/S0032386112007318)
+    linear_strains = strain[:np.argmax(strain > 0.02)]
+    linear_stresses = stress[:np.argmax(strain > 0.02)]
+    print(f"Calculating Young's Modulus with {len(linear_strains)} points")
+    # find the slope of the linear region
+    slope, intercept = np.polyfit(linear_strains, linear_stresses, 1)
+    # save the Young's modulus
+    with open(job.fn('youngs_modulus.txt'), "w") as f:
+        f.write(str(slope))
 
-'''
-WHAT TO EDIT**:
+def analyze_deform(jobid):
+    project = signac.get_project()
+    job = project.open_job(id=jobid)
+    # get and trajectory and make sure the first frame checks out
+    trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
+    logs = gsd.hoomd.read_log(job.fn('pressures.gsd'))
+    pressure_tensors = logs["log/md/compute/ThermodynamicQuantities/pressure_tensor"]
+    data = np.genfromtxt(job.fn('deform.log'))
+    Lx_arr = data[1:,7]
+    Lx0 = Lx_arr[0]
 
-------------------------------------------------------
+    strain = []
+    true_stress_deviatoric = []
+    true_stress_straight = []
+    # iterate through each frame
+    for i,frame in enumerate(trajectory):
+        strain.append(np.log(Lx_arr[i]/Lx0))#calculate true strain
+        #two ways of calculating true stress
+        #1
+        true_stress_straight.append(-1*pressure_tensors[i][0])
+        #2
+        hydrostaticPressure = np.add(pressure_tensors[i][0],np.add(pressure_tensors[i][3],pressure_tensors[i][5]))/3
+        deviatoricPressure = np.subtract(pressure_tensors[i][0],hydrostaticPressure)
+        true_stress_deviatoric.append(deviatoricPressure)
+    unique_strains, indices = np.unique(strain, return_index=True)
+    unique_true_stress_straight = []
+    for i in range(len(indices)-1):
+        unique_true_stress_straight.append(np.average(true_stress_straight[indices[i]:indices[i+1]]))
+    unique_true_stress_straight.append(np.average(true_stress_straight[indices[-1]:]))
 
-'''
-# our signac project
-project = signac.get_project()
-# look through each POLYMERIZED job in the project
+    # window averaging
+    N = 5
+    avg_unique_strains = np.convolve(unique_strains,np.ones(N)/N,mode='valid')
+    avg_unique_true_stress_straight = np.convolve(unique_true_stress_straight,np.ones(N)/N,mode='valid')
 
-group_statepoint = {"replica_index": 8, "density": 0.9, "temperature": 0.9, "crosslinker_percent": 50, 
-                    "N_monomers": 500, "monomer_size": 0, "extender_size": 0, "radical_percent": 1.0, 
-                    "chain_side_reaction_probability": 0, "chain_transfer_probability": 0.5, 
-                    "thiol_reaction_probability": 0.5, "polymerize_period": 100, "r_cut_reaction": 1.1, 
-                    "angle_constant": 5.0}
-# which group to plot
-group_plot_name = "0_mon_500_cg"
-group_plot_dir = "./plots/" + group_plot_name + "/"
-if not os.path.isdir(group_plot_dir):
-    os.mkdir(group_plot_dir)
-cg_only = True
+    # Save the stress-strain curve
+    with open(job.fn('stress_strain.txt'), "w") as f:
+        for i in range(len(avg_unique_strains)):
+            f.write(f"{avg_unique_strains[i]} {avg_unique_true_stress_straight[i]}\n")
 
 
-'''
-END**
-------------------------------------------------------
-'''
+def main():
+    plt.rcParams["font.family"] = "Avenir"
+    color = iter(cm.rainbow(np.linspace(0, 1, 11)))
+    fig, ax = plt.subplots(1,1,sharey=False)
 
-for job in project: 
-    # if the job has been deformed
-    if job.isfile('pressures.gsd'):
-        with open(job.fn('signac_statepoint.json')) as f:
-            statepoint = json.load(f)
+    '''
+    WHAT TO EDIT**:
 
-        try:
+    ------------------------------------------------------
+
+    '''
+    # our signac project
+    project = signac.get_project()
+    # look through each POLYMERIZED job in the project
+
+    # group_statepoint = {"replica_index": 8, "density": 0.9, "temperature": 0.9, "crosslinker_percent": 50, 
+    #                     "N_monomers": 500, "monomer_size": 0, "extender_size": 0, "radical_percent": 1.0, 
+    #                     "chain_side_reaction_probability": 0, "chain_transfer_probability": 0.5, 
+    #                     "thiol_reaction_probability": 0.5, "polymerize_period": 100, "r_cut_reaction": 1.1, 
+    #                     "angle_constant": 5.0}
+    # # which group to plot
+    # group_plot_name = "0_mon_500_cg"
+    # group_plot_dir = "./plots/" + group_plot_name + "/"
+    # if not os.path.isdir(group_plot_dir):
+    #     os.mkdir(group_plot_dir)
+    # cg_only = True
+
+
+    '''
+    END**
+    ------------------------------------------------------
+    '''
+
+    for job in project: 
+        # if the job has been deformed
+        if job.isfile('pressures.gsd'):
+            with open(job.fn('signac_statepoint.json')) as f:
+                statepoint = json.load(f)
+
+            # try:
             ''' initial look '''
             # get and trajectory and make sure the first frame checks out
             trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
@@ -155,6 +216,8 @@ for job in project:
             data = np.genfromtxt(job.fn('deform.log'))
             # print(data)
             Lx_arr = data[1:,7]
+            print(len(Lx_arr))
+            print(len(trajectory))
             # print(np.shape(Lx_arr))
 
             ''' analyze '''
@@ -178,100 +241,44 @@ for job in project:
                 true_stress_deviatoric.append(deviatoricPressure)
 
             unique_strains, indices = np.unique(strain, return_index=True)
-            print("indices:",indices)
             unique_true_stress_straight = []
             for i in range(len(indices)-1):
                 unique_true_stress_straight.append(np.average(true_stress_straight[indices[i]:indices[i+1]]))
 
             unique_true_stress_straight.append(np.average(true_stress_straight[indices[-1]:]))
-
-            # ### jsons ------------------------------------------
-            # json_dir = "./workspace/" + str(job) + "/json/"
-
-            # if not os.path.isdir(json_dir):
-            #     os.mkdir(json_dir)
-            # # make a json for number of bonds on each atom through the trajectory
-            # with open(json_dir + 'bond_histograms.json', "w") as f :
-            #     json.dump(trajectory_bond_histograms, f)
-
-            # # make a json for number of radicals through the trajectory
-            # with open(json_dir + 'radical_numbers.json', "w") as f:
-            #     json.dump(trajectory_radical_numbers, f)
-
-            # # make a json for histogram of molecule sizes at last frame
-            # molec_size_hist = dict()
-            # for i in strand_lengths:
-            #     molec_size_hist[i] = molec_size_hist.get(i, 0) + 1
-            # with open(json_dir + 'molecules_histogram.json', "w") as f :
-            #     json.dump(trajectory_molecule_sizes, f)
-            
-            # # make a json for histogram of undreacted atoms at last frame
-            # with open(json_dir + 'non_reacted_histogram.json', "w") as f :
-            #     json.dump(trajectory_unreacted_atoms, f)
             
             ### plots ------------------------------------------
             plot_dir = "./workspace/" + str(job) + "/plots/"
             if not os.path.isdir(plot_dir):
                 os.mkdir(plot_dir)
 
+            # window averaging
             N = 5
-            ax.plot(np.convolve(unique_strains,np.ones(N)/N,mode='valid'),
-                    np.convolve(unique_true_stress_straight,np.ones(N)/N,mode='valid'),
-                    linewidth=2,label=r'$\sigma_{xx}$')
+            avg_unique_strains = np.convolve(unique_strains,np.ones(N)/N,mode='valid')
+            avg_unique_true_stress_straight = np.convolve(unique_true_stress_straight,np.ones(N)/N,mode='valid')
+            ax.plot(avg_unique_strains,
+                    avg_unique_true_stress_straight,
+                    linewidth=2,label=rf'{job.id}')#$\sigma_{xx}$')
+            plt.legend()
             # ax.plot(unique_strains,unique_true_stress_straight)
             # ax[1].plot(strain,true_stress_deviatoric)
             # plt.savefig(plot_dir + 'stress_strain.png')
 
-            plt.savefig(plot_dir + 'stress_strain.png')
-
-            # c = rgb2hex(c)
-            # # molecule size histogram at final time point
-            # mol_size_fig = make_plotly_fig()
-            # mol_size_fig.update_layout(bargap=0)
-            # molec_size_hist = OrderedDict(sorted(molec_size_hist.items()))
-            # mol_size_fig.add_bar(name=i, x=[str(i) for i in list(molec_size_hist.keys())], y=list(molec_size_hist.values()),marker_color=c)
-            # mol_size_fig.write_image(plot_dir + "molecule_size_histogram.pdf")
-            
-            # # unreacted atoms histogram at final time point
-            # unreact_fig = make_plotly_fig()
-            # unreact_fig.update_layout(bargap=0)
-            # unreact_fig.add_bar(name=i,x=[str(i) for i in unreact_hist.keys()], y=list(unreact_hist.values()), marker_color=c)
-            # unreact_fig.write_image(plot_dir + "unreacted_atoms_histogram.pdf")
-
-            # # bond number histogram at final time point
-            # bond_no_fig = make_plotly_fig()
-            # bond_no_fig.update_layout(bargap=0)
-            # bond_no_fig.add_bar(name=i,x=list(bond_histogram.keys()), y=list(bond_histogram.values()), marker_color=c)
-            # bond_no_fig.write_image(plot_dir + "bond_number_histogram.pdf")
-
-            # # radical consistency
-            # radical_fig = make_plotly_fig(xaxis='Frames', yaxis='Number of radicals', yaxis_range=[7.75, 10.25])
-            # radical_fig.update_yaxes(tickvals=[8,9,10])
-            # radical_fig.add_hline(y=10, line_dash="dash", line_color="grey")
-            # radical_fig.add_trace(
-            #                       go.Scatter(x=list(trajectory_radical_numbers.keys()), 
-            #                                  y = [i[0] for i in trajectory_radical_numbers.values()],
-            #                                  mode='markers', 
-            #                                  marker=dict(color=c, opacity=0.5)
-            #                                  )
-            #                       )
-            # radical_fig.write_image(plot_dir + "radical_consistency.pdf")
-            
-            # # strands between crosslinks
-            # if group_plot_dir != None:
-            #     if not os.path.isdir(group_plot_dir + "moleculue_sizes/"):
-            #         os.mkdir(group_plot_dir + "moleculue_sizes/")
-            #         os.mkdir(group_plot_dir + "unreacted_atoms/")
-            #         os.mkdir(group_plot_dir + "bond_numbers/")
-            #         os.mkdir(group_plot_dir + "radical_consistency")
-            #     mol_size_fig.write_image(group_plot_dir + "moleculue_sizes/" + "{}.pdf".format(job.id))
-            #     unreact_fig.write_image(group_plot_dir + "unreacted_atoms/" + "{}.pdf".format(job.id))
-            #     bond_no_fig.write_image(group_plot_dir + "bond_numbers/" + "{}.pdf".format(job.id))
-            #     radical_fig.write_image(group_plot_dir + "radical_consistency/" + "{}.pdf".format(job.id))
-        except:
-            print("file exist but 0 size", job.id)
-plt.show()
-        
-        
+            plt.savefig(plot_dir + 'stress_strain.jpg')
 
 
+            #---------------------------------------------------------------------
+            #                    Calculate and save Young's Modulus
+            #---------------------------------------------------------------------
+            # find the linear region of the stress-strain curve up to 2% (https://www.sciencedirect.com/science/article/pii/S0032386112007318)
+            linear_strains = avg_unique_strains[:np.argmax(avg_unique_strains > 0.02)]
+            linear_stresses = avg_unique_true_stress_straight[:np.argmax(avg_unique_strains > 0.02)]
+            print(f"Calculating Young's Modulus with {len(linear_strains)} points")
+            # find the slope of the linear region
+            slope, intercept = np.polyfit(linear_strains, linear_stresses, 1)
+            # save the Young's modulus
+            with open(job.fn('youngs_modulus.txt'), "w") as f:
+                f.write(str(slope))
+
+if __name__ == '__main__':
+    main()
