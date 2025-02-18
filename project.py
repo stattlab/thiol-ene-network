@@ -45,6 +45,13 @@ def reacting(job):
 def deformed(job):
     return job.isfile("deform.gsd") and os.path.getsize(job.fn('deform.log')) > 100
 
+@MyProject.label
+def gelation_conversion_2(job):
+    try:
+        return job.doc['gelation_conversion_2'] > 0
+    except KeyError:
+        return False
+
 #-----------------------
 # Analysis labels
 #-----------------------
@@ -151,6 +158,14 @@ def modulus_analysis(job):
     import scripts.plot_deforms
     scripts.plot_deforms.analyze_modulus(job.id)
     print('analyzed modulus: ',job.id)
+
+@MyProject.pre(reacted)
+@MyProject.post(gelation_conversion_2)
+@MyProject.operation
+def gelation_2_analysis(job):
+    import scripts.gelation2
+    scripts.gelation2.gelation_analysis_via_2ndLargest(job.id)
+    print('analyzed gelation via 2nd largest cluster method: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()
