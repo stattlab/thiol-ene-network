@@ -105,9 +105,10 @@ def polymerize(job):
     sinit = Simulator(job)
     sinit.polymerize()
     print("reacted",job.id)
-    print("now conducting trajectory conversion analysis")
-    os.system('python3 ./scripts/trajectory_conversion.py')
-    print('analyzed the trajectory conversion of ', job.id)
+
+
+
+
 
 @MyProject.pre(reacted)
 @MyProject.post(deformed)
@@ -125,6 +126,15 @@ def deform(job):
 # @MyProject.operation
 # def analyze_trajectory_conversion(job):
 #     os.system('python3 ./scripts/trajectory_conversion.py')
+
+@MyProject.pre(reacting)
+@MyProject.post(reacted)
+@MyProject.operation
+def calculate_conversion(job):
+    import scripts.conversion
+    print("now conducting trajectory conversion analysis")
+    scripts.conversion.calculate_conversion(job.id)
+    print('analyzed the trajectory conversion of ', job.id)
 
 @MyProject.pre(reacted)
 @MyProject.post(defect_analyzed)

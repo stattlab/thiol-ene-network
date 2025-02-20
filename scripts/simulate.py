@@ -391,6 +391,7 @@ class Simulator():
             integration_times = []
             integration_tps = []
 
+            past_reacted_monomers = []
             for i in range(10000):
                 propagate_start = timer()
                 with sim.state.cpu_local_snapshot as snapshot:
@@ -409,8 +410,20 @@ class Simulator():
                     idx = snapshot.particles.rtag[ids]
                     particle_ids = snapshot.particles.typeid[idx]
 
+                    #update job doc and check if considered reacted
+                    reacted_cutoff = 0
                     unreacted_enes = len(ids[particle_ids==1])/2
-                    self.job.doc['reacted_monomers'] = 1 - unreacted_enes/(self.N_monomers*2)
+                    reacted_monomers = 1 - unreacted_enes/(self.N_monomers*2)
+                    self.job.doc['reacted_monomers'] = reacted_monomers
+                    if len(past_reacted_monomers) < 50:
+                        past_reacted_monomers.append(reacted_monomers)
+                    else:
+                        if (reacted_monomers - past_reacted_monomers[0]) <= reacted_cutoff:
+                            exit()
+                        else:
+                            #not yet fully reacted
+                            past_reacted_monomers.pop(0)
+                            past_reacted_monomers.append(reacted_monomers)
 
                 propagate_end = timer()
 
@@ -428,8 +441,8 @@ class Simulator():
                 self.job.doc["avg_integration_time"] = np.average(integration_times)
                 self.job.doc["integration_tps"] = np.average(integration_tps)
 
-                if self.job.doc["reacted_monomers"] > 0.975:
-                    exit()
+                #if self.job.doc["reacted_monomers"] > 0.925:
+                #    exit()
 
     # def run(self):
 

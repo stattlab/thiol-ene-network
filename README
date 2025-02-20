@@ -87,6 +87,11 @@ python project.py submit -o polymerize -n 1 -f '{"crosslinker_percent":100}' -- 
 python project.py submit -o polymerize -n 1 -j 4da1711a9d5ba1972881efb8d9451e5b -- --partition statt --time 12:00:00 --mem 80G
 
 
+python project.py submit -o polymerize -n 16 -- --partition statt --time 12:00:00 --mail-type ALL --mail-user rghanta2@illinois.edu
+
+python project.py submit -o calculate_conversion -n 16 -- --partition statt --time 1:00:00
+
+
 
 python project.py submit -o polymerize -n 10  -- --partition secondary --time 4:00:00 --gres gpu
 
