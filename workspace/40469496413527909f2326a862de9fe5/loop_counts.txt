@@ -1,0 +1,6 @@
+dangling strand data
+336 1
+primary loop_size data
+secondary loop_size data
+tertiary loop_size data
+quaternary loop_size data

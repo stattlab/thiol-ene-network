@@ -31,8 +31,23 @@ def reacted(job):
         conversion_data = np.genfromtxt(job.fn('trajectory_conversion.txt'), comments="#", delimiter=" ")
     except FileNotFoundError:
         return False
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     cutoff = 0.10
     if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) < cutoff:
+=======
+    cutoff = 0
+    if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) <= cutoff:
+>>>>>>> Stashed changes
+=======
+    cutoff = 0
+    if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) <= cutoff:
+>>>>>>> Stashed changes
+=======
+    cutoff = 0
+    if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) <= cutoff:
+>>>>>>> Stashed changes
         return True
     else:
         return False
@@ -48,7 +63,19 @@ def deformed(job):
 @MyProject.label
 def gelation_conversion_2(job):
     try:
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
         return job.doc['gelation_conversion_2'] > 0
+=======
+        return job.doc['gelation_conversion_2'][0] > 0.0
+>>>>>>> Stashed changes
+=======
+        return job.doc['gelation_conversion_2'][0] > 0.0
+>>>>>>> Stashed changes
+=======
+        return job.doc['gelation_conversion_2'][0] > 0.0
+>>>>>>> Stashed changes
     except KeyError:
         return False
 
@@ -58,6 +85,9 @@ def gelation_conversion_2(job):
 
 # def percolation_analyzed(job):
 #     return job.isfile('percolation_data.txt')
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 def defect_analyzed(job):
     return job.isfile('loop_counts.txt')
@@ -68,6 +98,32 @@ def xlink_rdf_analyzed(job):
 def stress_strain_analyzed(job):
     return job.isfile('stress_strain.txt')
 
+=======
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+@MyProject.label
+def defect_analyzed(job):
+    return job.isfile('loop_counts.txt')
+@MyProject.label
+def xlink_rdf_analyzed(job):
+    #If the system cannot form any crosslinks, don't even try to make an RDF of them
+    if job.sp['chain_side_reaction_probability'] == 0 and job.sp['crosslinker_percent'] == 0:
+        return True
+    else:
+        return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
+@MyProject.label
+def stress_strain_analyzed(job):
+    return job.isfile('stress_strain.txt')
+@MyProject.label
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 def modulus_analyzed(job):
     return job.isfile('youngs_modulus.txt')
 

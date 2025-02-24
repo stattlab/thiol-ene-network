@@ -1,5 +1,8 @@
 import sys, os, re, json, io, itertools
 import numpy as np
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import pandas as pd
 import signac
 import matplotlib
@@ -7,18 +10,36 @@ import matplotlib.pyplot as plt
 import matplotlib.cm
 from matplotlib.pyplot import cm
 from matplotlib.colors import rgb2hex
+=======
+import signac
+>>>>>>> Stashed changes
+=======
+import signac
+>>>>>>> Stashed changes
+=======
+import signac
+>>>>>>> Stashed changes
 import gsd, gsd.hoomd 
 from collections import defaultdict
 from collections import OrderedDict
 from collections import Counter
 from datetime import datetime
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import seaborn as sns
 import plotly.io as pio   
 
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 import networkx as nx
 
 """
@@ -239,14 +260,35 @@ def remove_dangling_ends(in_graph):
 def defect_analysis(job_id):
     testing = False
     
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     pio.kaleido.scope.mathjax = None
 
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
     # for job_id in os.listdir(direc):
     jdir = direc + job_id
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     input_file = direc + job_id + "/polymerize_trunc.gsd"
+=======
+    input_file = direc + job_id + "/polymerize.gsd"
+>>>>>>> Stashed changes
+=======
+    input_file = direc + job_id + "/polymerize.gsd"
+>>>>>>> Stashed changes
+=======
+    input_file = direc + job_id + "/polymerize.gsd"
+>>>>>>> Stashed changes
     if not os.path.isfile(input_file):
         raise FileNotFoundError("File not found")
         exit()
@@ -516,7 +558,16 @@ def xlink_rdf_analysis(job_id):
     ''')
     testing = True
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     pio.kaleido.scope.mathjax = None
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
@@ -603,6 +654,9 @@ def xlink_rdf_analysis(job_id):
         for r, g in zip(rdf_thiol_ene.bin_centers, rdf_thiol_ene.rdf*norm_thiol_ene):
             f.write(f"{r} {g}\n")
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     if testing:
         # make the plots
         fig = make_subplots(rows=1, cols=3, subplot_titles=("Crosslink Ene-Ene RDF", "Crosslink Thiol-Thiol RDF", "Crosslink Thiol-Ene RDF"))
@@ -611,6 +665,12 @@ def xlink_rdf_analysis(job_id):
         fig.add_trace(go.Scatter(x=rdf_thiol_ene.bin_centers, y=rdf_thiol_ene.rdf*norm_thiol_ene, mode='lines', name='Thiol-Ene RDF'), row=1, col=3)
         fig.show()
         fig.write_image("./test_network_properties/rdfs.jpg")
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
 
 def main(job_id):
@@ -622,4 +682,16 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python3 network_properties.py job_id")
         sys.exit(1)
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     main(sys.argv[1])
+=======
+    main(sys.argv[1])
+>>>>>>> Stashed changes
+=======
+    main(sys.argv[1])
+>>>>>>> Stashed changes
+=======
+    main(sys.argv[1])
+>>>>>>> Stashed changes

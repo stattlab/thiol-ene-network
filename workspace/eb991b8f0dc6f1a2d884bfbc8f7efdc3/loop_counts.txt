@@ -1,0 +1,23 @@
+dangling strand data
+1 1108
+5 1094
+10 54
+14 22
+18 10
+19 1
+22 5
+23 3
+27 3
+31 1
+32 1
+primary loop_size data
+secondary loop_size data
+tertiary loop_size data
+quaternary loop_size data
+7 549
+14 264
+21 224
+28 230
+35 337
+42 490
+49 781

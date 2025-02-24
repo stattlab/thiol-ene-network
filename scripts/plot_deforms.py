@@ -1,23 +1,10 @@
 import sys, os, re, json, io, itertools
 import numpy as np
-import pandas as pd
 import signac
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.cm
-from matplotlib.pyplot import cm
-from matplotlib.colors import rgb2hex
 import gsd, gsd.hoomd 
 from collections import defaultdict
 from collections import OrderedDict
 from collections import Counter
-
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import seaborn as sns
-import plotly.io as pio   
-pio.kaleido.scope.mathjax = None
 
 
 """
@@ -72,7 +59,7 @@ def connected_components(lists):
     for node in neighbors:
         if node not in seen:
             yield sorted(component(node))
-
+'''
 # make a default figure box 
 def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
     fig = go.Figure()
@@ -105,6 +92,9 @@ def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
     if yaxis_range != None:
         fig.update_yaxes(range=yaxis_range)
     return fig
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 def analyze_youngs_modulus(jobid):
     project = signac.get_project()
@@ -177,6 +167,84 @@ def main():
     ------------------------------------------------------
 
     '''
+=======
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+'''
+
+def analyze_modulus(jobid):
+    project = signac.get_project()
+    job = project.open_job(id=jobid)
+    data = np.genfromtxt(job.fn('stress_strain.txt'))
+    strain = data[:,0]
+    stress = data[:,1]
+    #---------------------------------------------------------------------
+    #                    Calculate and save Young's Modulus
+    #---------------------------------------------------------------------
+    # find the linear region of the stress-strain curve up to 2% (https://www.sciencedirect.com/science/article/pii/S0032386112007318)
+    linear_strains = strain[:np.argmax(strain > 0.02)]
+    linear_stresses = stress[:np.argmax(strain > 0.02)]
+    print(f"Calculating Young's Modulus with {len(linear_strains)} points")
+    # find the slope of the linear region
+    slope, intercept = np.polyfit(linear_strains, linear_stresses, 1)
+    # save the Young's modulus
+    with open(job.fn('youngs_modulus.txt'), "w") as f:
+        f.write(str(slope))
+
+def analyze_stress_strain(jobid):
+    project = signac.get_project()
+    job = project.open_job(id=jobid)
+    # get and trajectory and make sure the first frame checks out
+    trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
+    logs = gsd.hoomd.read_log(job.fn('pressures.gsd'))
+    pressure_tensors = logs["log/md/compute/ThermodynamicQuantities/pressure_tensor"]
+    data = np.genfromtxt(job.fn('deform.log'))
+    Lx_arr = data[1:,7]
+    Lx0 = Lx_arr[0]
+
+    strain = []
+    true_stress_deviatoric = []
+    true_stress_straight = []
+    # iterate through each frame
+    for i,frame in enumerate(trajectory):
+        strain.append(np.log(Lx_arr[i]/Lx0))#calculate true strain
+        #two ways of calculating true stress
+        #1
+        true_stress_straight.append(-1*pressure_tensors[i][0])
+        #2
+        hydrostaticPressure = np.add(pressure_tensors[i][0],np.add(pressure_tensors[i][3],pressure_tensors[i][5]))/3
+        deviatoricPressure = np.subtract(pressure_tensors[i][0],hydrostaticPressure)
+        true_stress_deviatoric.append(deviatoricPressure)
+    unique_strains, indices = np.unique(strain, return_index=True)
+    unique_true_stress_straight = []
+    for i in range(len(indices)-1):
+        unique_true_stress_straight.append(np.average(true_stress_straight[indices[i]:indices[i+1]]))
+    unique_true_stress_straight.append(np.average(true_stress_straight[indices[-1]:]))
+
+    # window averaging
+    N = 5
+    avg_unique_strains = np.convolve(unique_strains,np.ones(N)/N,mode='valid')
+    avg_unique_true_stress_straight = np.convolve(unique_true_stress_straight,np.ones(N)/N,mode='valid')
+
+    # Save the stress-strain curve
+    with open(job.fn('stress_strain.txt'), "w") as f:
+        for i in range(len(avg_unique_strains)):
+            f.write(f"{avg_unique_strains[i]} {avg_unique_true_stress_straight[i]}\n")
+
+'''
+def main():
+    plt.rcParams["font.family"] = "Avenir"
+    color = iter(cm.rainbow(np.linspace(0, 1, 11)))
+    fig, ax = plt.subplots(1,1,sharey=False)
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     # our signac project
     project = signac.get_project()
     # look through each POLYMERIZED job in the project
@@ -194,19 +262,37 @@ def main():
     # cg_only = True
 
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     '''
     END**
     ------------------------------------------------------
     '''
 
     for job in project: 
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
         # if the job has been deformed
         if job.isfile('pressures.gsd'):
             with open(job.fn('signac_statepoint.json')) as f:
                 statepoint = json.load(f)
 
             # try:
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
             ''' initial look '''
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
             # get and trajectory and make sure the first frame checks out
             trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
 
@@ -220,7 +306,7 @@ def main():
             print(len(trajectory))
             # print(np.shape(Lx_arr))
 
-            ''' analyze '''
+            #analyze
             strain = []
             true_stress_deviatoric = []
             true_stress_straight = []
@@ -279,6 +365,24 @@ def main():
             # save the Young's modulus
             with open(job.fn('youngs_modulus.txt'), "w") as f:
                 f.write(str(slope))
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 if __name__ == '__main__':
     main()
+=======
+'''
+if __name__ == '__main__':
+    main()
+>>>>>>> Stashed changes
+=======
+'''
+if __name__ == '__main__':
+    main()
+>>>>>>> Stashed changes
+=======
+'''
+if __name__ == '__main__':
+    main()
+>>>>>>> Stashed changes
