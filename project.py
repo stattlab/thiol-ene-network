@@ -31,7 +31,7 @@ def reacted(job):
         conversion_data = np.genfromtxt(job.fn('trajectory_conversion.txt'), comments="#", delimiter=" ")
     except FileNotFoundError:
         return False
-    cutoff = 0.00
+    cutoff = 0
     if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) <= cutoff:
         return True
     else:
@@ -58,23 +58,22 @@ def gelation_conversion_2(job):
 
 # def percolation_analyzed(job):
 #     return job.isfile('percolation_data.txt')
-
 @MyProject.label
 def defect_analyzed(job):
     return job.isfile('loop_counts.txt')
-
 @MyProject.label
 def xlink_rdf_analyzed(job):
-    return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
-
+    #If the system cannot form any crosslinks, don't even try to make an RDF of them
+    if job.sp['chain_side_reaction_probability'] == 0 and job.sp['crosslinker_percent'] == 0:
+        return True
+    else:
+        return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
 @MyProject.label
 def stress_strain_analyzed(job):
     return job.isfile('stress_strain.txt')
-
 @MyProject.label
 def modulus_analyzed(job):
     return job.isfile('youngs_modulus.txt')
-
 
 #-----------------------
 # Simulation operations

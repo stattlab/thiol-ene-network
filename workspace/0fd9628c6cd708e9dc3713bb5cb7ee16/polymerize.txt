@@ -1968,8 +1968,6 @@ Simulation.timestep  Simulation.tps  md.compute.ThermodynamicQuantities.kinetic_
       1965100           9.47147                             0.99330                                          -0.05931                                      90327.78351                                        1.01861e+06                                    69283.88007               
       1966100           9.48996                             0.99268                                          -0.11334                                      90271.45304                                        1.01883e+06                                    69430.98034               
       1967100           9.47438                             0.99885                                          -0.02672                                      90832.56142                                        1.01929e+06                                    69291.37181               
-<<<<<<< Updated upstream
-=======
 Simulation.timestep  Simulation.tps  md.compute.ThermodynamicQuantities.kinetic_temperature md.compute.ThermodynamicQuantities.pressure md.compute.ThermodynamicQuantities.kinetic_energy md.compute.ThermodynamicQuantities.potential_energy md.compute.ThermodynamicQuantities.volume
       1968100           8.76316                             0.99552                                          -0.03440                                      9.05299e+04                                        1.01833e+06                                    6.92781e+04               
 Simulation.timestep  Simulation.tps  md.compute.ThermodynamicQuantities.kinetic_temperature md.compute.ThermodynamicQuantities.pressure md.compute.ThermodynamicQuantities.kinetic_energy md.compute.ThermodynamicQuantities.potential_energy md.compute.ThermodynamicQuantities.volume
@@ -1981,4 +1979,3 @@ Simulation.timestep  Simulation.tps  md.compute.ThermodynamicQuantities.kinetic_
       1973100           9.01381                             1.00029                                           0.03052                                      9.09643e+04                                        1.01824e+06                                    6.91393e+04               
       1974100           8.99420                             0.99634                                           0.02139                                      9.06049e+04                                        1.01836e+06                                    6.92743e+04               
       1975100           9.00242                             0.98632                                          -0.09834                                      8.96938e+04                                        1.01864e+06                                    6.93211e+04               
->>>>>>> Stashed changes
