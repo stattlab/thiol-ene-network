@@ -7,10 +7,69 @@ import gsd, gsd.hoomd
 
 import networkx as nx
 
+#HI!!!! I think it likes me this time!
+
+
+def calc_weightAvgMw(G_list):
+    num = 0
+    denom = 0
+    for G in G_list:
+        M = len(G)
+        num += M*M
+        denom += M
+    return num/denom
+# G_list = [[1],[2,3],[3,3,3],[4,4,4,4],[5,5,5,5,5]]
+# print(calc_weightAvgMw(G_list))
 
 #---------------------------------------------------------------------------------------
 # Analysis Functions
 #---------------------------------------------------------------------------------------
+
+#https://pubs.acs.org/doi/full/10.1021/acs.macromol.3c00831
+# Calculates the reduced weight-average molecular weight of the system. This is the
+# weight-avg Mw excluding the largest molecule.
+def gelation_analysis_via_reducedMw(job_id):
+    #testing = True
+
+    project = signac.get_project()
+    job = project.open_job(id=job_id)
+    traj = gsd.hoomd.open(job.fn('polymerize.gsd'))
+
+    N0 = -1
+
+    # iterate through the trajectory, and for each frame, calculate the reduced Mw
+    reduced_Mws = []
+    conversions = []
+    for n,frame in enumerate(traj):
+        bonds = frame.bonds.group
+        G = nx.Graph()
+        G.add_edges_from(bonds)
+        Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+        if n==0:
+            N0 = len(Gcc)
+        # make a list of molecules excluding the second largest one
+        G_list = Gcc[1:]
+        reduced_Mw = calc_weightAvgMw(G_list=G_list)
+        reduced_Mws.append(reduced_Mw)
+        conversions.append(1 - len(Gcc)/N0)
+    
+    #after iterating, find the conversion when the reduced Mw is at the peak
+    max_idx = np.argmax(reduced_Mws)
+    max_conv = conversions[max_idx]
+    print("Conversion at reduced weight-averaged Mw peak:",max_conv)
+    '''
+    if testing:
+        ax, fig = plt.subplots()
+        plt.plot(conversions, second_largest_cluster_sizes)
+        plt.xlabel("Conversion")
+        plt.ylabel("Size of 2nd Largest Cluster")
+        plt.title("Conversion vs. Size of 2nd Largest Cluster")
+        plt.show()
+    '''
+    job.doc['gelation_conversion_2_2'] = (max_conv, max_idx)
+
+    return max_conv
+
 
 def gelation_analysis_via_2ndLargest(job_id):
     #testing = True
@@ -55,7 +114,7 @@ def gelation_analysis_via_2ndLargest(job_id):
     return max_diff_conv
 
 def main(job_id):
-    gelation_analysis_via_2ndLargest(job_id)
+    gelation_analysis_via_reducedMw(job_id)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

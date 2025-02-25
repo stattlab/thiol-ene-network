@@ -48,7 +48,7 @@ def deformed(job):
 @MyProject.label
 def gelation_conversion_2(job):
     try:
-        return job.doc['gelation_conversion_2_2'][0] >= 0.0
+        return job.doc['gelation_conversion_2'][0] > 0.0
     except KeyError:
         return False
 
