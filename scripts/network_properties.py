@@ -589,6 +589,63 @@ def xlink_rdf_analysis(job_id):
             f.write(f"{r} {g}\n")
 
 
+def strand_lengths_analysis(job_id):
+    project = signac.get_project()
+    direc = project.fn('') + 'workspace/'
+
+    # for job_id in os.listdir(direc):
+    jdir = direc + job_id
+    input_file = direc + job_id + "/polymerize.gsd"
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError("File not found")
+        exit()
+    # open the polymerized gsd file's trajectory (list of frames)
+    trajectory = gsd.hoomd.open(input_file)
+
+    frame = trajectory[-1]
+    dummy_id = len(frame.bonds.types)-1
+    bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+    # make a graph - each bond is an edge
+    G = nx.Graph()
+    G.add_edges_from(bonds)
+    # find all disconnected/connected sub-networks
+    # sort the list of networks by length
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+    # calculate gel fraction
+    sizes = [len(n) for n in Gcc ]
+    sizes = sorted(Counter(sizes).items(), key=lambda item: item[0], reverse=True)
+    gf = sizes[0]/sum(sizes)
+
+    with open(jdir + "/gel_fraction.txt", "w") as f:
+        f.write(gf)
+
+    Gnew = G.copy()
+    # remove everyone that has 3 or more bonds on it, only leaving linear strands
+    crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) >= 3]
+    for x in crosslink_beads:
+        Gnew.remove_node(x)
+    
+    # strands
+    Gcc_new = sorted(nx.connected_components(Gnew), key=len, reverse=True)
+    print("number of strands network",len(Gcc_new))
+    sizes = [len(n) for n in Gcc_new]
+    print("length of strands in network")
+    sizes_of_strands,count = np.unique(sizes,return_counts=True)
+    print(sizes_of_strands,count)
+
+    strand_count = list(zip(sizes_of_strands,count))
+    print(strand_count)
+    with open(jdir + "/strand_sizes.txt", "w") as f:
+        f.write("strand_size count\n")
+        for x in strand_count:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+
+    
+    
+
+
+
 
 def main(job_id):
     xlink_rdf_analysis(job_id)

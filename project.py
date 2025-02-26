@@ -157,6 +157,14 @@ def xlink_rdf_analysis(job):
     print('analyzed crosslink rdfs: ',job.id)
 
 
+@MyProject.pre(reacted)
+@MyProject.operation
+def xlink_rdf_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.strand_lengths_analysis(job.id)
+    print('analyzed strands: ',job.id)
+
+
 @MyProject.pre(deformed)
 @MyProject.post(stress_strain_analyzed)
 @MyProject.operation
