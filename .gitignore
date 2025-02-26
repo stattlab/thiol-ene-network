@@ -188,7 +188,6 @@ slurm-*.out
 
 #Analysis outputs
 *.csv
-*.txt
 .DS_Store
 */.DS_Store
 */*/.DS_Store
