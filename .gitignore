@@ -189,6 +189,10 @@ slurm-*.out
 #Analysis outputs
 *.csv
 *.txt
-*.DS_Store
-./plotting_scripts/*.py
+.DS_Store
+*/.DS_Store
+*/*/.DS_Store
+*/*/*.DS_Store
+/plotting_scripts/
 .gitignore
+*.pdf
