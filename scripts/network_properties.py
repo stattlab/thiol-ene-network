@@ -272,20 +272,6 @@ def defect_analysis(job_id):
         # find all disconnected/connected sub-networks
         # sort the list of networks by length
         Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
-
-        '''
-        #print("number of disconnected clusters in network",len(Gcc))
-        sizes = [len(n) for n in Gcc ]
-        #print("sizes of clusters in network",sizes)
-        
-        # calculate gel fraction
-        sizes = sorted(Counter(sizes).items(), key=lambda item: item[0], reverse=True)
-        with open(jdir + "/cluster_sizes.txt", "w") as f:
-            f.write("cluster_size count\n")
-            for x in sizes:
-                line = str(x[0]) + " " + str(x[1]) + "\n"
-                f.write(line)
-        '''
             
         # strand lengths (in entire system. If you only want the ones in the gel, you need to look at Gcc[0] only)
         # bonds in biggest cluster:
@@ -299,67 +285,13 @@ def defect_analysis(job_id):
         G2 = nx.Graph()
         G2.add_edges_from(new_bonds)
 
-    '''
-    Gnew = G.copy()
-    # remove everyone that has 3 or more bonds on it, only leaving linear strands
-    crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) >= 3]
-
-
-    ## find beads that are directly attached to crosslinks
-    print("finding beads directly bonded to crosslinks")
-    beads_bonded_to_crosslinks = np.unique(directly_bonded(crosslink_beads, new_bonds))
-
     
-    # all_bonds = atom_bonds(new_bonds)
-    # print("beep")
-    # print(all_bonds)    
-    # print("beep")
-    # beads_bonded_to_crosslinks2 = [all_bonds[atom] for atom in all_bonds.keys() if len(all_bonds[atom])>2]
-    # beads_bonded_to_crosslinks2 = np.unique([x for xs in beads_bonded_to_crosslinks2 for x in xs])
-
-    # print(len(set(beads_bonded_to_crosslinks2).intersection(set(beads_bonded_to_crosslinks))) == len(beads_bonded_to_crosslinks2))
-    # print(len(set(beads_bonded_to_crosslinks2).intersection(set(beads_bonded_to_crosslinks))))
-    # print(len(beads_bonded_to_crosslinks))
-    # print(len(beads_bonded_to_crosslinks2))
-
-    for x in crosslink_beads:
-        Gnew.remove_node(x)
-
-    # strands
-    Gcc_new = sorted(nx.connected_components(Gnew), key=len, reverse=True)
-    print("number of strands network",len(Gcc_new))
-    sizes = [len(n) for n in Gcc_new]
-    print("length of strands in network")
-    sizes_of_strands,count = np.unique(sizes,return_counts=True)
-    print(sizes_of_strands,count)
-
-    strand_count = list(zip(sizes_of_strands,count))
-    print(strand_count)
-    with open(jdir + "/strand_sizes.txt", "w") as f:
-        f.write("strand_size count\n")
-        for x in strand_count:
-            line = str(x[0]) + " " + str(x[1]) + "\n"
-            f.write(line)
     
-    # dangling ends
-    print("mapping dangling ends")
-    dangling_ends = []
-    for i in Gcc_new:
-        intersect = i.intersection(set(beads_bonded_to_crosslinks))
-        if len(intersect) < 2 and len(intersect) != len(i):
-            dangling_ends.append(len(i))
+    print("calculating dangling ends", flush=True)
+    print('end:',datetime.now(),  flush=True)
+    print('start:',start,  flush=True)
+    print('duration:',datetime.now()-start,  flush=True)
     
-    sizes_of_dangles,count = np.unique(dangling_ends,return_counts=True)
-    dangle_count = list(zip(sizes_of_dangles,count))
-    print(dangle_count)
-    with open(jdir + "/dangle_sizes.txt", "w") as f:
-        f.write("dangle_size count\n")
-        for x in dangle_count:
-            line = str(x[0]) + " " + str(x[1]) + "\n"
-            f.write(line)
-    '''
-    
-    print("calculating dangling ends")
     dangling_end_strands = []
     dangling_end_lengths = []
 
@@ -368,8 +300,8 @@ def defect_analysis(job_id):
     for x in G2.nodes():
         if x not in dangling_ends:
             dangling_end_graph.remove_node(x)
-    print("dangling ends:",dangling_end_graph.nodes())
-    print("dangling end edges:",dangling_end_graph.edges())
+    #print("dangling ends:",dangling_end_graph.nodes(), flush=True)
+    #print("dangling end edges:",dangling_end_graph.edges(), flush=True)
 
     for dangling_strand in nx.connected_components(dangling_end_graph):
         dangling_strand = list(dangling_strand)
@@ -380,29 +312,7 @@ def defect_analysis(job_id):
     dangling_end_data = list(zip(unique_dangling_end_lengths,count))
     print(dangling_end_data)
 
-    '''
-    # This was the old way of calculating dangling ends, removed to allow for branching 
-    #     dangling ends
-    G2_strands = G2.copy()
-    # remove everyone that has 3 or more bonds on it, only leaving linear strands
-    crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) >= 3]
-    print("crosslink_beads:",crosslink_beads)
-    for x in crosslink_beads:
-        G2_strands.remove_node(x)
     
-    for strand in nx.connected_components(G2_strands):
-        strand = list(strand)
-        # intersect = set(strand).intersection(set(crosslink_beads))
-        # print("intersect:",intersect)
-        # Checked and there is no intersection!
-        print("strand:",strand)
-        if G.degree(strand[0]) == 1 or G.degree(strand[-1]) == 1:
-            dangling_end_strands.append(strand)
-            dangling_end_lengths.append(len(strand))
-    unique_dangling_end_lengths,count = np.unique(dangling_end_lengths,return_counts=True)
-    dangling_end_data = list(zip(unique_dangling_end_lengths,count))
-    '''
-
     # if (testing):
     #     out_frame = frame
     #     out_frame.particles.velocity[:] = -1
@@ -414,12 +324,12 @@ def defect_analysis(job_id):
     #     output_gsd.append(out_frame)
     #     exit()
 
-    print("calculating loops")
+    print("calculating loops",  flush=True)
     start = datetime.now()
-    print('start:',start)
-    loops = list(nx.simple_cycles(reduced_graph,length_bound=50))
-    print('end:',datetime.now())
-    print('duration:',datetime.now()-start)
+    print('start:',start,  flush=True)
+    loops = list(nx.simple_cycles(reduced_graph,length_bound=50),  flush=True)
+    print('end:',datetime.now(),  flush=True)
+    print('duration:',datetime.now()-start,  flush=True)
     lengths_loops = np.array([len(l) for l in loops])
     #create a key for the loops and their types
     loop_types = np.array([classify_loop_type(l,new_bonds) for l in loops])
