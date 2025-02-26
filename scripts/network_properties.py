@@ -613,15 +613,17 @@ def strand_lengths_analysis(job_id):
     Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
     # calculate gel fraction
     sizes = [len(n) for n in Gcc ]
+    total = sum(sizes)
     sizes = sorted(Counter(sizes).items(), key=lambda item: item[0], reverse=True)
-    gf = sizes[0]/sum(sizes)
+    print(sizes[0][0])
+    gf = sizes[0][0]/total
 
     with open(jdir + "/gel_fraction.txt", "w") as f:
-        f.write(gf)
+        f.write(str(gf))
 
     Gnew = G.copy()
     # remove everyone that has 3 or more bonds on it, only leaving linear strands
-    crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) >= 3]
+    crosslink_beads = [x for  x in G.nodes() if G.degree(x) >= 3]
     for x in crosslink_beads:
         Gnew.remove_node(x)
     

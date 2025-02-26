@@ -159,7 +159,7 @@ def xlink_rdf_analysis(job):
 
 @MyProject.pre(reacted)
 @MyProject.operation
-def xlink_rdf_analysis(job):
+def strand_analysis(job):
     import scripts.network_properties
     scripts.network_properties.strand_lengths_analysis(job.id)
     print('analyzed strands: ',job.id)
