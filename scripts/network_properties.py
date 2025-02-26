@@ -621,9 +621,18 @@ def strand_lengths_analysis(job_id):
     with open(jdir + "/gel_fraction.txt", "w") as f:
         f.write(str(gf))
 
-    Gnew = G.copy()
+    new_bonds = []
+    for each in bonds:
+        for i in each:
+            if i in Gcc[0]:
+                new_bonds.append(each)
+                continue
+    # make cluster of biggest graph
+    G2 = nx.Graph()
+    G2.add_edges_from(new_bonds)
+    Gnew = G2.copy()
     # remove everyone that has 3 or more bonds on it, only leaving linear strands
-    crosslink_beads = [x for  x in G.nodes() if G.degree(x) >= 3]
+    crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) >= 3]
     for x in crosslink_beads:
         Gnew.remove_node(x)
     
@@ -642,6 +651,10 @@ def strand_lengths_analysis(job_id):
         for x in strand_count:
             line = str(x[0]) + " " + str(x[1]) + "\n"
             f.write(line)
+    
+    crosslink_density = len(crosslink_beads)/sum([i[0]*i[1] for i in strand_count])
+    with open(jdir + "/crosslink_density_1.txt", "w") as f:
+        f.write(str(crosslink_density))
 
     
     
