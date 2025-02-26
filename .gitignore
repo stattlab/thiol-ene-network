@@ -188,6 +188,7 @@ slurm-*.out
 
 #Analysis outputs
 *.csv
-<<<<<<< Updated upstream
-=======
 *.txt
+*.DS_Store
+./plotting_scripts/*.py
+.gitignore
