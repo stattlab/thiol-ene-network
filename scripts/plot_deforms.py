@@ -104,8 +104,8 @@ def analyze_modulus(jobid):
     #                    Calculate and save Young's Modulus
     #---------------------------------------------------------------------
     # find the linear region of the stress-strain curve up to 2% (https://www.sciencedirect.com/science/article/pii/S0032386112007318)
-    linear_strains = strain[:np.argmax(strain > 0.02)]
-    linear_stresses = stress[:np.argmax(strain > 0.02)]
+    linear_strains = strain[:np.argmax(strain > 0.1)]
+    linear_stresses = stress[:np.argmax(strain > 0.1)]
     print(f"Calculating Young's Modulus with {len(linear_strains)} points")
     # find the slope of the linear region
     slope, intercept = np.polyfit(linear_strains, linear_stresses, 1)
