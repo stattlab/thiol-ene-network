@@ -1,0 +1,129 @@
+import sys, os, re
+import numpy as np
+import signac
+import json
+import gsd, gsd.hoomd 
+from collections import defaultdict
+from scripts.extract import connected_components
+
+'''
+VIA GSD.HOOMD
+for every frame of the polymerization trajectory
+by going through each string of connected atoms, calculate conversion, 
+the largest molecule by bead size, and the average molecule bead size 
+'''
+def conversion_molecule_sizes(N_0, trajectory, dummy_id):
+    traj_conversion = []
+    thiol_ene_conversion = []
+    # through each frame of the trajectory
+    for i,frame in enumerate(trajectory):
+        # find the types of each atom in the 
+        type_map = list(frame.particles.typeid)
+        if i == 0:
+            init_functionalities = type_map.count(1)/2
+
+        bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+        connections = connected_components(bonds)
+        strand_lengths = []
+        n_molecules = 0
+        for strand in connections:
+            strand_lengths.append(len(strand))
+            n_molecules +=1
+
+        # calculate the extent of the reaction based off of molecule formation
+        extent_of_reaction = (N_0 - n_molecules)/N_0
+        traj_conversion.append([i,extent_of_reaction])
+
+        # calculate functionality conversion
+        thiols = type_map.count(0) 
+        enes = type_map.count(1)/2
+        thiol_ene_conversion.append([i, 1 - thiols/init_functionalities, 1 - enes/init_functionalities])
+
+    return np.array(traj_conversion), np.array(thiol_ene_conversion)
+
+project = signac.get_project()
+
+
+'''
+runs on polymerize file in the workspace, adds on to trajectory conversions that are already recorded
+calculates conversion by 
+(1) molecule -> trajectory_conversion.txt
+(2) functionality -> trajectory_thiol_ene_conversion.txt
+'''
+def calculate_conversion(job_id):
+    # find workspace directory
+    direc = project.fn('') + "workspace/"
+    jdir = direc + job_id
+    polymerize_gsd = jdir + "/polymerize.gsd"
+    if not os.path.isfile(polymerize_gsd):
+         return "oops no polymer file"
+    print(polymerize_gsd)
+    trajectory = gsd.hoomd.open(polymerize_gsd)
+    print(len(trajectory))
+    # get the dummy_bond_id and number of bonds from the initial frame
+    initial_frame = trajectory[0]
+    dummy_id = len(initial_frame.bonds.types)-1
+    print(dummy_id)
+    bonds = initial_frame.bonds.group[initial_frame.bonds.typeid!=dummy_id] # dummy type bond 
+    # find all strands in the box
+    all_strands = connected_components(bonds)
+    # count the number of molecules
+    n_molecules = 0
+    for strand in all_strands:
+            n_molecules +=1
+    N_0 = n_molecules
+
+    # get molecule size based trajectory conversion
+    t_c, t_te = conversion_molecule_sizes(N_0, trajectory, dummy_id)
+    trajectory_conversion_txt = jdir + "/trajectory_conversion.txt"
+    thiolene_conversion_txt = jdir + "/trajectory_thiol_ene_conversion.txt"
+    
+    # molecule conversion
+    # if there is already data stored, add onto the old conversion data (do not restart frame numbering)
+    # this will allow us to ignore if we truncate our files
+    if os.path.isfile(trajectory_conversion_txt):
+        data = np.loadtxt(trajectory_conversion_txt, delimiter=' ', skiprows=1)
+        # check if we already are fully reacted
+        cutoff = 0
+        if float(data[-1,1]) - float(data[-5,1]) <= cutoff:
+            print("already reacted")
+            return None
+        # counting if we have reached steady state but not 5 frames:
+        old_conversion_values = [d[1] for d in data]
+        # ignore past repeated frames
+        repeats = int(old_conversion_values.count(data[-1,1]))
+        # get the new values and frames
+        new_convs = [float(i[1]) for i in t_c if i[1] >= data[-1][1]][repeats:]
+        t_c_new = np.array([[int(n + 1 + int(data[-1][0])), i] for n,i in enumerate(new_convs)])
+        if t_c_new.size > 0:
+            t_c = np.concatenate((data, t_c_new))
+    # dump the molecule conversions into the txt
+    header = "frame conversion"
+    np.savetxt(trajectory_conversion_txt, t_c, header=header, fmt='%i %.16f', comments='')
+
+    # thiol and ene functionality conversion
+    # if there is already data stored, add onto the old conversion data (do not restart frame numbering)
+    # this will allow us to ignore if we truncate our files
+    if os.path.isfile(thiolene_conversion_txt):
+        data = np.loadtxt(thiolene_conversion_txt, delimiter=' ', skiprows=1)
+        # compare ene conversion of last file to current
+        new_convs = [[float(i[1]), float(i[2])] for i in t_te if i[2] >= data[-1][2]]
+        header = "frame thiol_conv ene_conv"
+        if new_convs == []:
+            np.savetxt(thiolene_conversion_txt, t_te, header=header, fmt='%i %.16f %.16f', comments='')
+        else:
+            # add the new conversions to the corrected 
+            # counting final repeats:
+            new_convs = new_convs[repeats:]
+            old_conversion_values = [d[1] for d in data]
+            repeats = int(old_conversion_values.count(data[-1,2]))
+
+            t_te_new = np.array([[int(n + 1 + int(data[-1][0])), i[0], i[1]] for n,i in enumerate(new_convs)])
+            if t_te_new.size > 0:
+                t_te = np.concatenate((data, t_te_new))
+            # dump the thiol-ene conversions into the txt
+            np.savetxt(thiolene_conversion_txt, t_te, header=header, fmt='%i %.16f %.16f', comments='')
+
+        
+    
+    

@@ -1,23 +1,11 @@
 import sys, os, re, json, io, itertools
 import numpy as np
-import pandas as pd
 import signac
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.cm
-from matplotlib.pyplot import cm
-from matplotlib.colors import rgb2hex
 import gsd, gsd.hoomd 
 from collections import defaultdict
 from collections import OrderedDict
 from collections import Counter
 from datetime import datetime
-
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import seaborn as sns
-import plotly.io as pio   
 
 import networkx as nx
 
@@ -500,14 +488,12 @@ def get_length_categorized_loops(primary_edges,secondary_edges,tertiary_edges,qu
 #
 def defect_analysis(job_id,testing=False):
     
-    pio.kaleido.scope.mathjax = None
-
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
     # for job_id in os.listdir(direc):
     jdir = direc + job_id
-    input_file = direc + job_id + "/polymerize_trunc.gsd"
+    input_file = direc + job_id + "/polymerize.gsd"
     if not os.path.isfile(input_file):
         raise FileNotFoundError("File not found")
         exit()
@@ -617,15 +603,15 @@ def defect_analysis(job_id,testing=False):
     dangling_end_data = list(zip(unique_dangling_end_lengths,count))
     # print(dangling_end_data)
 
-    print("calculating loops")
+    print("calculating loops",  flush=True)
     start = datetime.now()
     crosslink_graph = remove_extenders(no_danglingEnds_graph)
     # print('crosslink_graph edges', crosslink_graph.edges())
     # print('crosslink_graph nodes', crosslink_graph.nodes())
-    print('start loop analysis:',start)
-    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4))
-    print('end loop analysis:',datetime.now())
-    print('duration:',datetime.now()-start)
+    print('start loop analysis:',start,  flush=True)
+    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4),  flush=True)
+    print('end loop analysis:',datetime.now(),  flush=True)
+    print('duration:',datetime.now()-start,  flush=True)
     # lengths_loops = np.array([len(l) for l in loops])
     loop_types = np.array([classify_loop_type_simple(l) for l in loops])
     primary_edges, secondary_edges, tertiary_edges, quaternary_edges = categorize_loop_edges(loops, crosslink_graph)
@@ -715,7 +701,6 @@ def xlink_rdf_analysis(job_id):
     ''')
     testing = True
 
-    pio.kaleido.scope.mathjax = None
 
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
@@ -802,14 +787,78 @@ def xlink_rdf_analysis(job_id):
         for r, g in zip(rdf_thiol_ene.bin_centers, rdf_thiol_ene.rdf*norm_thiol_ene):
             f.write(f"{r} {g}\n")
 
-    if testing:
-        # make the plots
-        fig = make_subplots(rows=1, cols=3, subplot_titles=("Crosslink Ene-Ene RDF", "Crosslink Thiol-Thiol RDF", "Crosslink Thiol-Ene RDF"))
-        fig.add_trace(go.Scatter(x=rdf_ene.bin_centers, y=rdf_ene.rdf*norm_ene, mode='lines', name='Ene-Ene RDF'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=rdf_thiol.bin_centers, y=rdf_thiol.rdf*norm_thiol, mode='lines', name='Thiol-Thiol RDF'), row=1, col=2)
-        fig.add_trace(go.Scatter(x=rdf_thiol_ene.bin_centers, y=rdf_thiol_ene.rdf*norm_thiol_ene, mode='lines', name='Thiol-Ene RDF'), row=1, col=3)
-        fig.show()
-        fig.write_image("./test_network_properties/rdfs.jpg")
+
+def strand_lengths_analysis(job_id):
+    project = signac.get_project()
+    direc = project.fn('') + 'workspace/'
+
+    # for job_id in os.listdir(direc):
+    jdir = direc + job_id
+    input_file = direc + job_id + "/polymerize.gsd"
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError("File not found")
+        exit()
+    # open the polymerized gsd file's trajectory (list of frames)
+    trajectory = gsd.hoomd.open(input_file)
+
+    frame = trajectory[-1]
+    dummy_id = len(frame.bonds.types)-1
+    bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+    # make a graph - each bond is an edge
+    G = nx.Graph()
+    G.add_edges_from(bonds)
+    # find all disconnected/connected sub-networks
+    # sort the list of networks by length
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+    # calculate gel fraction
+    sizes = [len(n) for n in Gcc ]
+    total = sum(sizes)
+    sizes = sorted(Counter(sizes).items(), key=lambda item: item[0], reverse=True)
+    print(sizes[0][0])
+    gf = sizes[0][0]/total
+
+    with open(jdir + "/gel_fraction.txt", "w") as f:
+        f.write(str(gf))
+
+    new_bonds = []
+    for each in bonds:
+        for i in each:
+            if i in Gcc[0]:
+                new_bonds.append(each)
+                continue
+    # make cluster of biggest graph
+    G2 = nx.Graph()
+    G2.add_edges_from(new_bonds)
+    Gnew = G2.copy()
+    # remove everyone that has 3 or more bonds on it, only leaving linear strands
+    crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) >= 3]
+    for x in crosslink_beads:
+        Gnew.remove_node(x)
+    
+    # strands
+    Gcc_new = sorted(nx.connected_components(Gnew), key=len, reverse=True)
+    print("number of strands network",len(Gcc_new))
+    sizes = [len(n) for n in Gcc_new]
+    print("length of strands in network")
+    sizes_of_strands,count = np.unique(sizes,return_counts=True)
+    print(sizes_of_strands,count)
+
+    strand_count = list(zip(sizes_of_strands,count))
+    print(strand_count)
+    with open(jdir + "/strand_sizes.txt", "w") as f:
+        f.write("strand_size count\n")
+        for x in strand_count:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+    
+    crosslink_density = len(crosslink_beads)/sum([i[0]*i[1] for i in strand_count])
+    with open(jdir + "/crosslink_density_1.txt", "w") as f:
+        f.write(str(crosslink_density))
+
+    
+    
+
+
 
 
 def main(job_id):

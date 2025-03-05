@@ -1,23 +1,10 @@
 import sys, os, re, json, io, itertools
 import numpy as np
-import pandas as pd
 import signac
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.cm
-from matplotlib.pyplot import cm
-from matplotlib.colors import rgb2hex
 import gsd, gsd.hoomd 
 from collections import defaultdict
 from collections import OrderedDict
 from collections import Counter
-
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import seaborn as sns
-import plotly.io as pio   
-pio.kaleido.scope.mathjax = None
 
 
 """
@@ -72,7 +59,7 @@ def connected_components(lists):
     for node in neighbors:
         if node not in seen:
             yield sorted(component(node))
-
+'''
 # make a default figure box 
 def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
     fig = go.Figure()
@@ -105,8 +92,9 @@ def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
     if yaxis_range != None:
         fig.update_yaxes(range=yaxis_range)
     return fig
+'''
 
-def analyze_youngs_modulus(jobid):
+def analyze_modulus(jobid):
     project = signac.get_project()
     job = project.open_job(id=jobid)
     data = np.genfromtxt(job.fn('stress_strain.txt'))
@@ -116,8 +104,8 @@ def analyze_youngs_modulus(jobid):
     #                    Calculate and save Young's Modulus
     #---------------------------------------------------------------------
     # find the linear region of the stress-strain curve up to 2% (https://www.sciencedirect.com/science/article/pii/S0032386112007318)
-    linear_strains = strain[:np.argmax(strain > 0.02)]
-    linear_stresses = stress[:np.argmax(strain > 0.02)]
+    linear_strains = strain[:np.argmax(strain > 0.1)]
+    linear_stresses = stress[:np.argmax(strain > 0.1)]
     print(f"Calculating Young's Modulus with {len(linear_strains)} points")
     # find the slope of the linear region
     slope, intercept = np.polyfit(linear_strains, linear_stresses, 1)
@@ -125,7 +113,7 @@ def analyze_youngs_modulus(jobid):
     with open(job.fn('youngs_modulus.txt'), "w") as f:
         f.write(str(slope))
 
-def analyze_deform(jobid):
+def analyze_stress_strain(jobid):
     project = signac.get_project()
     job = project.open_job(id=jobid)
     # get and trajectory and make sure the first frame checks out
@@ -165,18 +153,11 @@ def analyze_deform(jobid):
         for i in range(len(avg_unique_strains)):
             f.write(f"{avg_unique_strains[i]} {avg_unique_true_stress_straight[i]}\n")
 
-
+'''
 def main():
     plt.rcParams["font.family"] = "Avenir"
     color = iter(cm.rainbow(np.linspace(0, 1, 11)))
     fig, ax = plt.subplots(1,1,sharey=False)
-
-    '''
-    WHAT TO EDIT**:
-
-    ------------------------------------------------------
-
-    '''
     # our signac project
     project = signac.get_project()
     # look through each POLYMERIZED job in the project
@@ -194,19 +175,12 @@ def main():
     # cg_only = True
 
 
-    '''
-    END**
-    ------------------------------------------------------
-    '''
-
-    for job in project: 
         # if the job has been deformed
         if job.isfile('pressures.gsd'):
             with open(job.fn('signac_statepoint.json')) as f:
                 statepoint = json.load(f)
 
             # try:
-            ''' initial look '''
             # get and trajectory and make sure the first frame checks out
             trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
 
@@ -220,7 +194,7 @@ def main():
             print(len(trajectory))
             # print(np.shape(Lx_arr))
 
-            ''' analyze '''
+            #analyze
             strain = []
             true_stress_deviatoric = []
             true_stress_straight = []
@@ -279,6 +253,6 @@ def main():
             # save the Young's modulus
             with open(job.fn('youngs_modulus.txt'), "w") as f:
                 f.write(str(slope))
-
+'''
 if __name__ == '__main__':
     main()

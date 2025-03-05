@@ -31,8 +31,8 @@ def reacted(job):
         conversion_data = np.genfromtxt(job.fn('trajectory_conversion.txt'), comments="#", delimiter=" ")
     except FileNotFoundError:
         return False
-    cutoff = 0.10
-    if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) < cutoff:
+    cutoff = 0
+    if float(conversion_data[-1,1]) - float(conversion_data[-5,1]) <= cutoff:
         return True
     else:
         return False
@@ -48,7 +48,7 @@ def deformed(job):
 @MyProject.label
 def gelation_conversion_2(job):
     try:
-        return job.doc['gelation_conversion_2'] > 0
+        return job.doc['gelation_conversion_2_2'][0] >= 0.0
     except KeyError:
         return False
 
@@ -58,16 +58,20 @@ def gelation_conversion_2(job):
 
 # def percolation_analyzed(job):
 #     return job.isfile('percolation_data.txt')
-
+@MyProject.label
 def defect_analyzed(job):
     return job.isfile('loop_counts.txt')
-
+@MyProject.label
 def xlink_rdf_analyzed(job):
-    return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
-
+    #If the system cannot form any crosslinks, don't even try to make an RDF of them
+    if job.sp['chain_side_reaction_probability'] == 0 and job.sp['crosslinker_percent'] == 0:
+        return True
+    else:
+        return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
+@MyProject.label
 def stress_strain_analyzed(job):
     return job.isfile('stress_strain.txt')
-
+@MyProject.label
 def modulus_analyzed(job):
     return job.isfile('youngs_modulus.txt')
 
@@ -105,9 +109,10 @@ def polymerize(job):
     sinit = Simulator(job)
     sinit.polymerize()
     print("reacted",job.id)
-    print("now conducting trajectory conversion analysis")
-    os.system('python3 ./scripts/trajectory_conversion.py')
-    print('analyzed the trajectory conversion of ', job.id)
+
+
+
+
 
 @MyProject.pre(reacted)
 @MyProject.post(deformed)
@@ -126,6 +131,15 @@ def deform(job):
 # def analyze_trajectory_conversion(job):
 #     os.system('python3 ./scripts/trajectory_conversion.py')
 
+@MyProject.pre(reacting)
+@MyProject.post(reacted)
+@MyProject.operation
+def calculate_conversion(job):
+    import scripts.conversion
+    print("now conducting trajectory conversion analysis")
+    scripts.conversion.calculate_conversion(job.id)
+    print('analyzed the trajectory conversion of ', job.id)
+
 @MyProject.pre(reacted)
 @MyProject.post(defect_analyzed)
 @MyProject.operation
@@ -141,6 +155,14 @@ def xlink_rdf_analysis(job):
     import scripts.network_properties
     scripts.network_properties.xlink_rdf_analysis(job.id)
     print('analyzed crosslink rdfs: ',job.id)
+
+
+@MyProject.pre(reacted)
+@MyProject.operation
+def strand_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.strand_lengths_analysis(job.id)
+    print('analyzed strands: ',job.id)
 
 
 @MyProject.pre(deformed)
@@ -164,8 +186,8 @@ def modulus_analysis(job):
 @MyProject.operation
 def gelation_2_analysis(job):
     import scripts.gelation2
-    scripts.gelation2.gelation_analysis_via_2ndLargest(job.id)
-    print('analyzed gelation via 2nd largest cluster method: ',job.id)
+    scripts.gelation2.gelation_analysis_via_reducedMw(job.id)
+    print('analyzed gelation via reduced Mw method: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()
