@@ -11,13 +11,23 @@ dangling strand data
 31 1
 32 1
 primary loop_size data
+6.0 549
+13.0 13
+20.0 1
 secondary loop_size data
+12.0 242
+18.0 3
+19.0 9
+26.0 1
 tertiary loop_size data
+12.0 11
+18.0 192
+25.0 13
 quaternary loop_size data
-7 549
-14 264
-21 224
-28 230
-35 337
-42 490
-49 781
+18.0 9
+24.0 185
+25.0 2
+30.0 10
+31.0 21
+36.0 3
+38.0 2

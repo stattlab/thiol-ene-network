@@ -1,0 +1,6 @@
+dangling_strand count
+574 1
+primary_loop_size data
+secondary_loop_size data
+tertiary_loop_size data
+quaternary_loop_size data
