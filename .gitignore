@@ -166,8 +166,8 @@ cython_debug/
 slurm-*.out
 
 #signac statepoint and job docs
-#signac_statepoint.json
-#signac_job_document.json
+signac_statepoint.json
+signac_job_document.json
 
 #Hoomd simulation gsds and log files
 *.gsd
