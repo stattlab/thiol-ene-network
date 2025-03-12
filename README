@@ -111,7 +111,7 @@ python project.py submit -o polymerize -n 8 -- --partition statt --time 24:00:00
 
 defect_analysis
 
-python project.py submit -o defect_analysis -n 9  -f '{"angle_constant":10}'' -- --partition statt --time 12:00:00 --mail-type ALL --mail-user rghanta2@illinois.edu
+python project.py submit -o strand_analysis -n 5  -f '{"angle_constant":10}' -- --partition statt --time 12:00:00 --mail-type ALL --mail-user rghanta2@illinois.edu
 
 
 other cluster things:

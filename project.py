@@ -157,7 +157,7 @@ def xlink_rdf_analysis(job):
     print('analyzed crosslink rdfs: ',job.id)
 
 
-@MyProject.pre(reacted)
+#@MyProject.pre(reacted)
 @MyProject.operation
 def strand_analysis(job):
     import scripts.network_properties
