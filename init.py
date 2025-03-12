@@ -29,7 +29,7 @@ def main():
         "replica_index": [0,1,2,3,4],
         "density": [0.81],
         "temperature":[1],
-        "crosslinker_percent":[0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100],
+        "crosslinker_percent":[50],#[0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100],
         "N_monomers":[10000],
         "monomer_size":[0],
         "extender_size":[0],
@@ -39,7 +39,7 @@ def main():
         "thiol_reaction_probability": [1],
         "polymerize_period": [100],#,1,1000000000],
         "r_cut_reaction":[1.1],
-        "angle_constant":[100],
+        "angle_constant":[10],
         "polymerization_method":["cpu_local_snapshot"],
         }
 
