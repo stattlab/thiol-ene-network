@@ -762,15 +762,15 @@ def xlink_rdf_analysis(job_id):
     # 'C' = tetrafunctional thiol crosslinker center, 'Carbon' = chain growthed ene
     rdf_ene, norm_ene = intermolecular_rdf(crosslinks_only_traj, 
                                            A_name='Carbon', B_name='Carbon', 
-                                           r_max=2.0, r_min=0.25, bins=100, 
+                                           r_max=10.0, r_min=0.25, bins=100, 
                                            exclude_bonded=False,)
     rdf_thiol, norm_thiol = intermolecular_rdf(crosslinks_only_traj, 
                                                A_name='C', B_name='C', 
-                                               r_max=2.0, r_min=0.25, bins=100, 
+                                               r_max=10.0, r_min=0.25, bins=100, 
                                                exclude_bonded=False,)
     rdf_thiol_ene, norm_thiol_ene = intermolecular_rdf(crosslinks_only_traj, 
                                                        A_name='C', B_name='Carbon', 
-                                                       r_max=2.0, r_min=0.25, bins=100, 
+                                                       r_max=10.0, r_min=0.25, bins=100, 
                                                        exclude_bonded=False,) 
 
     # save the rdf data into txts
