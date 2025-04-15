@@ -31,8 +31,9 @@ def conversion_molecule_sizes(N_0, trajectory, dummy_id):
             n_molecules +=1
 
         # calculate the extent of the reaction based off of molecule formation
+        # also store the largest molecule size and average molecule size
         extent_of_reaction = (N_0 - n_molecules)/N_0
-        traj_conversion.append([i,extent_of_reaction])
+        traj_conversion.append([i,extent_of_reaction, np.max(strand_lengths), np.average(strand_lengths)])
 
         # calculate functionality conversion
         thiols = type_map.count(0) 
@@ -98,7 +99,7 @@ def calculate_conversion(job_id):
         if t_c_new.size > 0:
             t_c = np.concatenate((data, t_c_new))
     # dump the molecule conversions into the txt
-    header = "frame conversion"
+    header = "frame conversion largest_molecule average_molecule"
     np.savetxt(trajectory_conversion_txt, t_c, header=header, fmt='%i %.16f', comments='')
 
     # thiol and ene functionality conversion

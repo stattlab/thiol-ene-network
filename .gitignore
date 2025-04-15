@@ -193,6 +193,7 @@ slurm-*.out
 */*/.DS_Store
 */*/*.DS_Store
 /plotting_scripts/
+/plotting_scripts/*
 .gitignore
 *.pdf
 README
