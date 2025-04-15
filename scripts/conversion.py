@@ -76,6 +76,7 @@ def calculate_conversion(job_id):
 
     # get molecule size based trajectory conversion
     t_c, t_te = conversion_molecule_sizes(N_0, trajectory, dummy_id)
+    print(t_c)
     trajectory_conversion_txt = jdir + "/trajectory_conversion.txt"
     thiolene_conversion_txt = jdir + "/trajectory_thiol_ene_conversion.txt"
     
@@ -98,13 +99,15 @@ def calculate_conversion(job_id):
         t_c_new = np.array([[int(n + 1 + int(data[-1][0])), i] for n,i in enumerate(new_convs)])
         if t_c_new.size > 0:
             t_c = np.concatenate((data, t_c_new))
+    
     # dump the molecule conversions into the txt
     header = "frame conversion largest_molecule average_molecule"
-    np.savetxt(trajectory_conversion_txt, t_c, header=header, fmt='%i %.16f', comments='')
+    np.savetxt(trajectory_conversion_txt, t_c, header=header, fmt='%i %.16f %.16f %.16f', comments='')
 
     # thiol and ene functionality conversion
     # if there is already data stored, add onto the old conversion data (do not restart frame numbering)
     # this will allow us to ignore if we truncate our files
+    
     if os.path.isfile(thiolene_conversion_txt):
         data = np.loadtxt(thiolene_conversion_txt, delimiter=' ', skiprows=1)
         # compare ene conversion of last file to current
@@ -124,7 +127,6 @@ def calculate_conversion(job_id):
                 t_te = np.concatenate((data, t_te_new))
             # dump the thiol-ene conversions into the txt
             np.savetxt(thiolene_conversion_txt, t_te, header=header, fmt='%i %.16f %.16f', comments='')
-
         
     
     
