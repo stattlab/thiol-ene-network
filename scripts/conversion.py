@@ -95,8 +95,8 @@ def calculate_conversion(job_id):
         # ignore past repeated frames
         repeats = int(old_conversion_values.count(data[-1,1]))
         # get the new values and frames
-        new_convs = [float(i[1]) for i in t_c if i[1] >= data[-1][1]][repeats:]
-        t_c_new = np.array([[int(n + 1 + int(data[-1][0])), i] for n,i in enumerate(new_convs)])
+        new_convs = [[float(i[1]),i[2],i[3]] for i in t_c if i[1] >= data[-1][1]][repeats:]
+        t_c_new = np.array([[int(n + 1 + int(data[-1][0]))] + i for n,i in enumerate(new_convs)])
         if t_c_new.size > 0:
             t_c = np.concatenate((data, t_c_new))
     
@@ -120,7 +120,6 @@ def calculate_conversion(job_id):
             # counting final repeats:
             new_convs = new_convs[repeats:]
             old_conversion_values = [d[1] for d in data]
-            repeats = int(old_conversion_values.count(data[-1,2]))
 
             t_te_new = np.array([[int(n + 1 + int(data[-1][0])), i[0], i[1]] for n,i in enumerate(new_convs)])
             if t_te_new.size > 0:
