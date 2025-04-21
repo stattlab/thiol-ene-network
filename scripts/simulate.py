@@ -50,6 +50,7 @@ class Simulator():
         self.output_txt =job.fn('polymerize.txt')
         self.output_run_txt =job.fn('run.txt')
         self.run_gsd_file = job.fn('run.gsd')
+        self.contract_bonds_gsd_file = job.fn('contract_bonds.gsd')
 
         if "custom_action" in self.job.sp["polymerization_method"]:
             import scripts.customAction.polymerize as polymerize
@@ -443,6 +444,82 @@ class Simulator():
 
                 #if self.job.doc["reacted_monomers"] > 0.925:
                 #    exit()
+
+    def contract_bonds(self):
+        if "custom_action" in self.job.sp["polymerization_method"]:
+            import scripts.customAction.polymerize as polymerize
+
+        S = System()                
+
+        if self.job.sp["polymerization_method"] == "custom_action_GPU" or self.job.sp["polymerization_method"] == "custom_action_GPU_bulk":
+            device = hoomd.device.GPU(notice_level=3)
+        else:
+            device = hoomd.device.CPU(notice_level=3)
+        print(self.job.sp["polymerization_method"]," is being run on ",device)
+
+        sim = hoomd.Simulation(device=device, seed=1)
+        sim.create_state_from_gsd(filename=self.polymerize_gsd_file,frame=-1)
+
+        if len(sim.state.angle_types)==0:
+            FJ_system=True
+        else:
+            FJ_system=False
+
+        integrator = hoomd.md.Integrator(dt=0.005)
+        cell = hoomd.md.nlist.Cell(buffer=0.4)
+
+        fene = hoomd.md.bond.FENEWCA()
+        fene.params[S.bond_types] = dict(k=100,r0=1.5,epsilon=0.0, sigma=0.0, delta=0.0)
+        fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=0.0, delta=0.0)
+
+        types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1]) # everything but "Dummy" particles
+
+        print("Simulation set up, starting Langevin bond contraction...")
+
+        #minimize energy with the Langevin thermostat at high friction
+        langevin = hoomd.md.methods.Langevin(filter=types_to_integrate, kT=0.0001,default_gamma=20.0)
+        integrator.methods.append(langevin)
+        integrator.forces = [fene]
+
+        sim.operations.integrator = integrator
+        sim.run(1200)
+
+        # fene.params[S.bond_types] = dict(k=100,r0=1.0,epsilon=0.0, sigma=0.0, delta=0.0)
+        # fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=0.0, delta=0.0)
+        # integrator.forces = [fene]
+        # sim.run(1200)
+
+        # langevin = hoomd.md.methods.Langevin(filter=types_to_integrate, kT=0.0,default_gamma=20.0)
+        # integrator.methods.append(langevin)
+        harmonic = hoomd.md.bond.Harmonic()
+        harmonic.params[S.bond_types] = dict(k=500.0, r0=0.0)
+        harmonic.params['Dummy'] = dict(k=0.0, r0=0.0)
+        # integrator.forces = [harmonic]
+        # sim.run(12000)
+
+        print("FIRE minimization...")
+        nve = hoomd.md.methods.ConstantVolume(filter=types_to_integrate)
+        fire = hoomd.md.minimize.FIRE(dt=0.005,
+                                    force_tol=0,
+                                    angmom_tol=0,
+                                    energy_tol=0)
+        fire.methods.append(nve)
+        integrator.forces = []
+        fire.forces = [harmonic]
+        # fire.forces = [fene]
+        sim.operations.integrator = fire
+        sim.run(12000)
+
+        # #minimize energy with the Langevin thermostat at normal friction
+        # langevin = hoomd.md.methods.Langevin(filter=types_to_integrate, kT=0.001,default_gamma=0.5)
+        # integrator.methods.append(langevin)
+        # integrator.forces = [fene]
+        
+        # sim.operations.integrator = integrator
+        # sim.run(1200)
+
+        hoomd.write.GSD.write(state=sim.state, mode='wb', filename=self.contract_bonds_gsd_file)
+        print("writing gsd file to:",self.contract_bonds_gsd_file)
 
     # def run(self):
 

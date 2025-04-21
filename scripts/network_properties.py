@@ -10,6 +10,14 @@ from datetime import datetime
 import networkx as nx
 
 """
+Calculates the distance between two points in a periodic box.
+"""
+def dist_pbc(x1,x0,Box):
+    delta = np.abs(x1 - x0)
+    delta= np.where(delta > 0.5 * Box, Box - delta, delta)
+    return np.sqrt(np.sum(delta**2.0))
+
+"""
 frame.bonds.group gives a np.array that is of form [[a,b],[c,d],[e,f],[a,g],...] 
 where a is bonded to b, c is bonded to d, etc.
 
@@ -226,6 +234,47 @@ def reduce_network_dangling_ends(in_graph):
             out_graph.remove_node(i)
             dangling_ends.append(i)
     return out_graph, dangling_ends
+
+# def id_and_remove_dangling_and_primary(in_graph):
+#     """
+#     Args:
+#         in_graph: unmodified networkx.Graph instance
+#     Returns:
+#         new_graph: networkx.MuliGraph instance with dangling ends and primary loops removed
+#         dangling_ends: lengths of dangling ends removed from the network
+#         primary_loops: lengths of primary loops removed from the network
+
+#     Recursively:
+#         remove extenders
+#         remove dangling ends
+#         remove primary loops
+
+     
+#     """
+#     dangling_end_lengths = []
+#     primary_loops_lengths = []
+
+#     new_graph = nx.MultiGraph()
+#     last_graph = in_graph.copy().to_multigraph()
+
+#     for i in range(10000):
+#         #remove extenders
+#         new_graph = remove_extenders(last_graph)
+
+#         #remove dangling ends
+#         # new_graph,dangling_ends = reduce_network_dangling_ends(last_graph)
+#         for node in new_graph.nodes():
+#             #find nodes with only one neighbor
+#             if list(in_graph.neighbors(node)) == 1:
+                
+
+
+
+    
+#         if new_graph.edges() == last_graph.edges():
+#             break
+#         else:
+#             last_graph = new_graph.copy()
 
 #returns a MULTIGRAPH
 def remove_extenders(in_graph):
@@ -609,7 +658,7 @@ def defect_analysis(job_id,testing=False):
     # print('crosslink_graph edges', crosslink_graph.edges())
     # print('crosslink_graph nodes', crosslink_graph.nodes())
     print('start loop analysis:',start,  flush=True)
-    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4))
+    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4),  flush=True)
     print('end loop analysis:',datetime.now(),  flush=True)
     print('duration:',datetime.now()-start,  flush=True)
     # lengths_loops = np.array([len(l) for l in loops])
@@ -665,7 +714,7 @@ def defect_analysis(job_id,testing=False):
     # Here, each line is a tuple of the form (loop_size, count), with header lines 
     # indicating the type of loop data to follow until the next header
     with open(jdir + "/loop_counts.txt", "w") as f:
-        f.write("dangling_strand count\n")
+        f.write("dangling_strand data\n")
         for x in dangling_end_data:
             line = str(x[0]) + " " + str(x[1]) + "\n"
             f.write(line)
@@ -855,8 +904,130 @@ def strand_lengths_analysis(job_id):
     with open(jdir + "/crosslink_density_1.txt", "w") as f:
         f.write(str(crosslink_density))
 
+def contract_bonds_analysis(job_id):
+    project = signac.get_project()
+    direc = project.fn('') + 'workspace/'
+
+    # for job_id in os.listdir(direc):
+    jdir = direc + job_id
+    input_file = direc + job_id + "/contract_bonds.gsd"
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError("File not found")
+        exit()
+    # open the contract_bonds gsd file's trajectory (list of frames)
+    trajectory = gsd.hoomd.open(input_file)
+
+    frame = trajectory[-1]
+    dummy_id = len(frame.bonds.types)-1
+    bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
     
+    G = nx.Graph()
+    G.add_edges_from(bonds)
+    # find all disconnected/connected sub-networks
+    # sort the list of networks by length
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+        
+    # strand lengths (in entire system. If you only want the ones in the gel, you need to look at Gcc[0] only)
+    # bonds in biggest cluster:
+    gel_bonds = []
+    for each in bonds:
+        for i in each:
+            if i in Gcc[0]:
+                gel_bonds.append(each)
+                continue
+    # make cluster of biggest graph
+    gel_G = nx.Graph()
+    gel_G.add_edges_from(gel_bonds)
+
+    # get all bonds that are elastically ineffective
+    ineffective_bonds = []
+    for bond in gel_G.edges():
+        if dist_pbc(frame.particles.position[bond[0]],\
+                    frame.particles.position[bond[1]],\
+                    Box=frame.configuration.box[0:3]) < 0.005:
+                    # and bond not in ineffective_bonds:
+            # print("ineffective bond:",bond)
+            ineffective_bonds.append(bond)
+
+    maybe_ineffective_particles, ineffective_particle_bonds = np.unique(ineffective_bonds,return_counts=True)
+    print("len(maybe_ineffective_particles):",len(maybe_ineffective_particles))
+    print("ineffective_particle_bonds:",ineffective_particle_bonds)
+    ineffective_particles = []
+    for i in range(len(maybe_ineffective_particles)):
+        # if the particle has the same number of ineffective bonds as the number of bonds on it, it is truly inefffective
+        if ineffective_particle_bonds[i] == gel_G.degree(maybe_ineffective_particles[i]):
+            # ineffective_particles.remove(ineffective_particles[i])
+            ineffective_particles.append(maybe_ineffective_particles[i])
+        # else:
+        #     print("effective particle:",maybe_ineffective_particles[i])
+    print("len(ineffective_particles):",len(ineffective_particles))
+    print("elastically effective portion: ",1-len(ineffective_particles)/len(gel_G.nodes()))
+
+    # make a copy graph of elastically effective network
+    gel_G_effective = gel_G.copy()
+    for particle in ineffective_particles:
+        gel_G_effective.remove_node(particle)
+
+    # make a copy graph of ineffective strands
+    gel_ineffective_G = nx.Graph()
+    gel_ineffective_G.add_edges_from(ineffective_bonds)
+    nodes_to_remove = []
+    for node in gel_ineffective_G.nodes():
+        if node not in ineffective_particles:
+            nodes_to_remove.append(node)
+    for node in nodes_to_remove:
+        gel_ineffective_G.remove_node(node)
+
+    #identify the strands in effective graph
+    # remove everyone that has 3 or more bonds on it, only leaving linear strands
+    crosslink_beads = [x for  x in gel_G_effective.nodes() if gel_G_effective.degree(x) >= 3]
+    G_tmp = gel_G_effective.copy()
+    for x in crosslink_beads:
+        G_tmp.remove_node(x)
+    strands_effective = sorted(nx.connected_components(G_tmp), key=len, reverse=True)
+    sizes_effective = [len(n) for n in strands_effective]
+    effective_strand_hist, effective_strand_binEdges = np.histogram(sizes_effective,bins=np.arange(0,np.max(sizes_effective)+1))
+    effective_strand_hist = effective_strand_hist.astype(float)
+    print("effective strands:",effective_strand_hist)
+    print("effective strands bin edges:",effective_strand_binEdges)
+
+    #identify the strands in ineffective graph
+    strands_ineffective = sorted(nx.connected_components(gel_ineffective_G), key=len, reverse=True)
+    sizes_ineffective = [len(n) for n in strands_ineffective]
+    ineffective_strand_hist, ineffective_strand_binEdges = np.histogram(sizes_ineffective,bins=np.arange(0,np.max(sizes_ineffective)+1))
+    ineffective_strand_hist = ineffective_strand_hist.astype(float)
+    print("ineffective strands:",ineffective_strand_hist)
+    print("ineffective strands bin edges:",ineffective_strand_binEdges)
+
+    # output a frame with the ineffective and effective strands colored
+    testing = False
+    if testing:
+        out_frame = frame
+        out_frame.particles.velocity[:] = -1
+        for i in range(len(strands_ineffective)):
+            for bead in strands_ineffective[i]:
+                out_frame.particles.velocity[bead] = [i,0,0]
+        for i in range(len(strands_effective)):
+            for bead in strands_effective[i]:
+                out_frame.particles.velocity[bead] = [0,i,0]
+        output_gsd = gsd.hoomd.open(jdir + f'/test_contract_bonds_analysis.gsd', 'w')
+        output_gsd.append(out_frame)
+
+    # save the data
+    if not os.path.exists(jdir + "/contract_bonds_analysis"):
+        os.mkdir(jdir + "/contract_bonds_analysis")
+
+    np.savetxt(jdir + "/contract_bonds_analysis/ineffective_strand_hist.txt", \
+               np.vstack((ineffective_strand_hist,np.arange(len(ineffective_strand_hist)))).T, \
+                fmt='%d', delimiter=',', newline='\n')
     
+    np.savetxt(jdir + "/contract_bonds_analysis/effective_strand_hist.txt", \
+                np.vstack((effective_strand_hist,np.arange(len(effective_strand_hist)))).T, \
+                 fmt='%d', delimiter=',', newline='\n')
+    
+    with open(jdir + "/contract_bonds_analysis/overall.txt", "w") as f:
+        f.write("n_effective_particles\tn_ineffective_particles\n")
+        f.write(f"{len(gel_G.nodes())-len(ineffective_particles)}\t{len(ineffective_particles)}\n")
 
 
 

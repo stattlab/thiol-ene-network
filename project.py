@@ -51,6 +51,10 @@ def gelation_conversion_2(job):
         return job.doc['gelation_conversion_2_2'][0] >= 0.0
     except KeyError:
         return False
+    
+@MyProject.label
+def contracted_bonds(job):
+    return job.isfile("contract_bonds.gsd")
 
 #-----------------------
 # Analysis labels
@@ -74,6 +78,11 @@ def stress_strain_analyzed(job):
 @MyProject.label
 def modulus_analyzed(job):
     return job.isfile('youngs_modulus.txt')
+@MyProject.label
+def contract_bonds_analyzed(job):
+    return job.isfile('contract_bonds_analysis/effective_strand_hist.txt') and \
+    job.isfile('contract_bonds_analysis/ineffective_strand_hist.txt') and \
+    job.isfile('contract_bonds_analysis/overall.txt')
 
 #-----------------------
 # Simulation operations
@@ -110,10 +119,6 @@ def polymerize(job):
     sinit.polymerize()
     print("reacted",job.id)
 
-
-
-
-
 @MyProject.pre(reacted)
 @MyProject.post(deformed)
 @MyProject.operation
@@ -121,6 +126,15 @@ def deform(job):
     import scripts.deform
     scripts.deform.main(job.fn('polymerize.gsd'),-1)
     print('deformed: ',job.id)
+
+@MyProject.pre(reacted)
+@MyProject.post(contracted_bonds)
+@MyProject.operation
+def contract_bonds(job):
+    from scripts.simulate import Simulator
+    sinit = Simulator(job)
+    sinit.contract_bonds()
+    print("contracted bonds: ",job.id)
 
 #-----------------------
 # Analysis operations
@@ -188,6 +202,14 @@ def gelation_2_analysis(job):
     import scripts.gelation2
     scripts.gelation2.gelation_analysis_via_reducedMw(job.id)
     print('analyzed gelation via reduced Mw method: ',job.id)
+
+@MyProject.pre(contracted_bonds)
+@MyProject.post(contract_bonds_analyzed)
+@MyProject.operation
+def contract_bonds_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.contract_bonds_analysis(job.id)
+    print('analyzed contract bonds: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()
