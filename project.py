@@ -68,10 +68,19 @@ def defect_analyzed(job):
 @MyProject.label
 def xlink_rdf_analyzed(job):
     #If the system cannot form any crosslinks, don't even try to make an RDF of them
-    if job.sp['chain_side_reaction_probability'] == 0 and job.sp['crosslinker_percent'] == 0:
-        return True
+    if job.sp['chain_side_reaction_probability'] != 0 :
+        one = job.isfile('ene_ene_rdf.txt')
     else:
-        return job.isfile('ene_ene_rdf.txt') and job.isfile('thiol_ene_rdf.txt') and job.isfile('thiol_thiol_rdf.txt')
+        one = True
+    if job.sp['crosslinker_percent'] != 0:
+        two = job.isfile('thiol_thiol_rdf.txt')
+    else:
+        two = True
+    if job.sp['crosslinker_percent'] != 0 and job.sp['chain_side_reaction_probability'] != 0:
+        three = job.isfile('thiol_ene_rdf.txt')
+    else:
+        three = True
+    return one and two and three
 @MyProject.label
 def stress_strain_analyzed(job):
     return job.isfile('stress_strain.txt')

@@ -6,6 +6,7 @@ from collections import defaultdict
 from collections import OrderedDict
 from collections import Counter
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 import networkx as nx
 
@@ -38,6 +39,51 @@ def atom_bonds(bonds):
             neighbors[item].remove(item)
     return neighbors
 
+def draw_graph(G):
+    pos = nx.planar_layout(G)
+    labels = {}    
+    for node in G.nodes():
+        #set the node name as the key and the label as its value 
+        labels[node] = node
+    nx.draw_networkx_nodes(G, pos, node_color = 'r', node_size = 100, alpha = 1)
+    nx.draw_networkx_labels(G, pos, labels, font_size = 10)
+    ax = plt.gca()
+    if G.is_multigraph():
+        for e in G.edges:
+            if e[0] != e[1]:
+                ax.annotate("",
+                            xy=pos[e[0]], xycoords='data',
+                            xytext=pos[e[1]], textcoords='data',
+                            arrowprops=dict(arrowstyle="-", color="0.5",
+                                            shrinkA=5, shrinkB=5,
+                                            patchA=None, patchB=None,
+                                            connectionstyle="arc3,rad=rrr".replace('rrr',str(0.3*e[2])
+                                            ),
+                                            ),
+                            )
+            else:
+                ax.annotate("",
+                            xy=pos[e[0]], xycoords='data',
+                            xytext=pos[e[1]], textcoords='data',
+                            arrowprops=dict(arrowstyle="-", color="0.5",
+                                            shrinkA=5, shrinkB=5,
+                                            patchA=None, patchB=None,
+                                            connectionstyle="arc3,rad=rrr".replace('rrr',str(0.3*e[2])
+                                            ),
+                                            ),
+                            )
+    else:
+        for e in G.edges:
+            ax.annotate("",
+                        xy=pos[e[0]], xycoords='data',
+                        xytext=pos[e[1]], textcoords='data',
+                        arrowprops=dict(arrowstyle="-", color="0.5",
+                                        shrinkA=5, shrinkB=5,
+                                        patchA=None, patchB=None,
+                                        connectionstyle="arc3,rad=0"
+                                        ),
+                        )
+    plt.axis('off')
 
 def directly_bonded(beads, bonds):
     direct_bonds = []
@@ -195,9 +241,6 @@ def intermolecular_rdf(
             B_pos = snap.particles.position[type_B]
             exclude_ii = False
 
-        print(A_pos)
-        print(np.shape(A_pos))
-
         box = snap.configuration.box
         system = (box, A_pos)
         aq = freud.locality.AABBQuery.from_system(system)
@@ -212,7 +255,8 @@ def intermolecular_rdf(
             nlist.filter(indices_A != indices_B)
             post_filter = len(nlist)
 
-        rdf.compute(aq, neighbors=nlist, reset=False)
+        # rdf.compute(aq, neighbors=nlist, reset=False)
+        rdf.compute(aq, reset=False)
     normalization = post_filter / pre_filter if exclude_bonded else 1
     return rdf, normalization
 
@@ -235,46 +279,194 @@ def reduce_network_dangling_ends(in_graph):
             dangling_ends.append(i)
     return out_graph, dangling_ends
 
-# def id_and_remove_dangling_and_primary(in_graph):
-#     """
-#     Args:
-#         in_graph: unmodified networkx.Graph instance
-#     Returns:
-#         new_graph: networkx.MuliGraph instance with dangling ends and primary loops removed
-#         dangling_ends: lengths of dangling ends removed from the network
-#         primary_loops: lengths of primary loops removed from the network
+def id_and_remove_dangling_and_primary(in_graph):
+    """
+    Args:
+        in_graph: unmodified networkx.Graph instance
+    Returns:
+        new_graph: networkx.MuliGraph instance with dangling ends and primary loops removed
+        dangling_ends: indexes and lengths of dangling ends removed from the network
+        primary_loops: indexes and lengths of primary loops removed from the network
+        super_dangling_ends: indexes and lengths of super dangling ends removed from the network
+        super_primary_loops: indexes and lengths of super primary loops removed from the network
 
-#     Recursively:
-#         remove extenders
-#         remove dangling ends
-#         remove primary loops
+    Recursively:
+        remove extenders
+        remove dangling ends
+        remove primary loops
+    """
+    #These will contain lists of the reduced network nodes with dangling ends
+    dangling_end_nodes = []
+    primary_loop_nodes = []
 
-     
-#     """
-#     dangling_end_lengths = []
-#     primary_loops_lengths = []
+    dangling_ends = []
+    primary_loops = []
+    super_dangling_ends = []
+    super_primary_loops = []
 
-#     new_graph = nx.MultiGraph()
-#     last_graph = in_graph.copy().to_multigraph()
+    new_graph = nx.MultiGraph()
+    last_graph = remove_extenders(in_graph)
+    scanlan_case_graph = last_graph.copy()
 
-#     for i in range(10000):
-#         #remove extenders
-#         new_graph = remove_extenders(last_graph)
+    for i in range(10000):
+        #remove extenders
+        new_graph = remove_extenders(last_graph)
 
-#         #remove dangling ends
-#         # new_graph,dangling_ends = reduce_network_dangling_ends(last_graph)
-#         for node in new_graph.nodes():
-#             #find nodes with only one neighbor
-#             if list(in_graph.neighbors(node)) == 1:
+        #remove dangling ends
+        # new_graph,dangling_ends = reduce_network_dangling_ends(last_graph)
+        nodes_to_remove = []
+        edges_to_remove = []
+        for node in new_graph.nodes():
+            #find nodes with only one neighbor
+            if len(list(new_graph.neighbors(node))) == 1:
+                # edge = new_graph.edges(node)
+                # tmp = 0
+                # for k in range(len(edge)):
+                #     edge_weight = edge[k]['weight']
+                #     tmp += edge_weight
+                # check the lists for any already associated defects
+                # add the weight of the edge to the correct list (dangling end or super dangling end)
+                # dangling_ends.append([in_graph.neighbors(node)[0],tmp])
+                #find any other nodes that were previously truncated
+                if len(list(scanlan_case_graph.neighbors(node))) == 1:
+                    dangling_end_nodes.append([list(new_graph.neighbors(node))[0],node])
+                else:
+                    for i in list(scanlan_case_graph.neighbors(node)):
+                        # check if the neighboring nodes are in the dangling end list or primary loop list
+                        
+
+
+                        print("REPLACE ME")
+
+
+
+                    dangling_end_nodes.append([list(new_graph.neighbors(node))[0],node,])
+                nodes_to_remove.append(node)
+
+            # if there is a primary loop edge,
+            if new_graph.has_edge(u=node,v=node):
+                primary_loop_nodes.append(node)
+                edges_to_remove.append((node,node))
+            
+
+        new_graph.remove_nodes_from(nodes_to_remove)
+
                 
 
 
 
     
-#         if new_graph.edges() == last_graph.edges():
-#             break
-#         else:
-#             last_graph = new_graph.copy()
+        if new_graph.edges() == last_graph.edges():
+            break
+        else:
+            last_graph = new_graph.copy()
+
+def id_ineffective_junctions(in_graph):
+    """
+    Args:
+        in_graph: networkx.MultiGraph of only junctions, terminal beads, and weighted edges
+    Returns:
+        effective_graph: networkx.MultiGraph instance with only effective junctions and edges
+        ineffective_graph: networkx.MultiGraph instance with only ineffective junctions and edges
+
+    Recursively:
+        remove extenders
+        remove dangling ends
+        remove primary loops
+    """
+    #Assume all nodes are effective
+    effective_graph = in_graph.copy()
+    ineffective_graph = nx.MultiGraph()
+    ineffective_nodes = []
+    ineffective_edges = []
+
+    last_graph = in_graph.copy()
+    new_graph = nx.MultiGraph()
+    # scanlan_case_graph = last_graph.copy()
+
+    for i in range(100000):
+        # draw_graph(last_graph)
+        # plt.show()
+        new_graph = last_graph.copy()
+
+        nodes_to_remove = []
+        edges_to_remove = []
+        for node in new_graph.nodes():
+            neighbors = list(new_graph.neighbors(node))
+            # if the node has only one neighbor and is not a primary loop (degree 2),
+            if len(neighbors) == 1 and new_graph.degree(node) == 1:
+                # effective_graph.remove_node(node)
+                # ineffective_nodes.append(node)
+                # ineffective_edges.append((new_graph.neighbors(node)[0],node))
+                nodes_to_remove.append(node)
+                edges_to_remove.append((neighbors[0],node))
+                ineffective_graph.add_edge(node,neighbors[0],weight=new_graph[node][neighbors[0]][0]["weight"])
+                ineffective_nodes.append(node)
+                print("dangling_end: ",node,neighbors[0])
+                break
+
+            # if the node has a primary loop edge,
+            if new_graph.has_edge(u=node,v=node):
+                weight = new_graph[node][node][0]['weight']
+                # print(new_graph[node][node][0]['weight'])
+                ineffective_graph.add_edge(node,node,weight=weight)
+                # ineffective_edges.append((node,node))
+                edges_to_remove.append((node,node))
+                ineffective_nodes.append(node) # NOTE: this node can only be categorized as ineffective because the maximum functionality is 4
+                print("primary_loop: ",node)
+                break
+
+            # if the node is only an extender, then it should be in the ineffective graph, not effective
+            if new_graph.degree(node) == 2:
+                # to avoid fringe cases where the node is part of a primary loop, so it has degree 2, but only one neighbor
+                if len(neighbors) == 2:
+                    # connect the two neighbors
+                    weight = new_graph[node][neighbors[0]][0]['weight'] + \
+                                new_graph[node][neighbors[1]][0]['weight'] + 1
+                    new_graph.add_edge(neighbors[0],neighbors[1],weight=weight)
+                    ineffective_graph.add_edge(node,neighbors[0],weight=new_graph[node][neighbors[0]][0]['weight'])
+                    ineffective_graph.add_edge(node,neighbors[1],weight=new_graph[node][neighbors[1]][0]['weight'])
+                elif len(neighbors) == 1:
+                    # connect the neighbor to itself
+                    weight = new_graph[node][neighbors[0]][0]['weight'] + \
+                                new_graph[node][neighbors[0]][1]['weight'] + 1
+                    new_graph.add_edge(neighbors[0],neighbors[0],weight=weight)
+                    ineffective_graph.add_edge(node,neighbors[0],weight=new_graph[node][neighbors[0]][0]['weight'])
+                    ineffective_graph.add_edge(node,neighbors[0],weight=new_graph[node][neighbors[0]][1]['weight'])
+                else:
+                    raise ValueError("Node has more than 2 neighbors, but is not a primary loop")
+                # remove the node
+                ineffective_graph.add_node(node)
+                nodes_to_remove.append(node)
+                print("extender: ",node)
+                ineffective_nodes.append(node)
+                break
+
+        new_graph.remove_nodes_from(nodes_to_remove)
+        new_graph.remove_edges_from(edges_to_remove)
+    
+        # if new_graph.edges() == last_graph.edges():
+        #     break
+        # else:
+        #     last_graph = new_graph.copy()
+        if nodes_to_remove == [] and edges_to_remove == []:
+            print(new_graph.edges())
+            print(last_graph.edges())
+            break
+        else:
+            last_graph = new_graph.copy()
+    else: #nobreak
+        raise ValueError("Dangling ends not removed after 10,000 iterations. Consider increasing the limit, or check for infinite recursion.")
+    effective_graph = new_graph.copy()
+    # plt.show()
+    ineffective_graph = nx.MultiGraph()
+    ineffective_graph.add_nodes_from(ineffective_nodes)
+    ineffective_graph.add_edges_from(ineffective_edges)
+    for edge in in_graph.edges(data=True):
+        print(edge)
+        if edge[0] or edge[1] in ineffective_nodes:
+            ineffective_graph.add_edge(edge[0],edge[1],weight=edge[-1]['weight'])
+    return effective_graph, ineffective_graph
 
 #returns a MULTIGRAPH
 def remove_extenders(in_graph):
@@ -739,6 +931,233 @@ def defect_analysis(job_id,testing=False):
             line = str(x[0]) + " " + str(x[1]) + "\n"
             f.write(line)
 
+def defect_analysis_in_progress(job_id,testing=False):
+    
+    project = signac.get_project()
+    direc = project.fn('') + 'workspace/'
+
+    # for job_id in os.listdir(direc):
+    jdir = direc + job_id
+    input_file = direc + job_id + "/polymerize.gsd"
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError("File not found")
+        exit()
+    # open the polymerized gsd file's trajectory (list of frames)
+    trajectory = gsd.hoomd.open(input_file)
+
+    frame = trajectory[-1]
+    dummy_id = len(frame.bonds.types)-1
+    bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+
+
+    Ntotal = frame.particles.N
+
+    if testing:
+        jdir = "./test_network_properties"
+        bonds = [[0,1],
+                 [1,1.5],[1.5,2],[11,2.11],[2,2.11],
+                 [2,3],[3,4],[4,1],[0,5],[5,6],[6,7],[5,8],[8,9],
+                    [2,10],[10,12],[12,11],[12,13],[12,14],[13,15],[15,14],[0,16],[0,11],[6,17],[8,8]]
+        print("bonds:",bonds)
+        G = nx.Graph()
+        G.add_edges_from(bonds)
+        G2 = nx.Graph()
+        G2.add_edges_from(bonds)
+        frame = gsd.hoomd.Frame()
+        frame.particles.position = np.array([[0,0,0],[1,0,0],[1.5,0,0],[1.6,0,0],[2,0,0],[2.11,0,0],[2,1,0],[1,1,0],[-1,0,0],[-2,0,0],[-3,0,0],[-1,1,0],[-1,2,0],
+                                             [3,0,0],[2,1,0],[3,1,0],[4,1,0],[3,2,0],[4,2,0],[-1,0,0],[-2,-1,0]])
+        frame.particles.velocity = np.zeros((len(frame.particles.position),3))
+        frame.particles.N = len(frame.particles.position)
+        frame.bonds.N = len(bonds)
+        frame.bonds.group = np.array(bonds)
+        frame.bonds.typeid = np.zeros(len(bonds))
+        frame.bonds.types = ['bond']
+        new_bonds = bonds
+
+        # print('G2 Nodes:',G2.nodes())
+        # print('G2 Edges:',G2.edges())
+        # G2 = remove_extenders(G2)
+        # print('G2 Nodes:',G2.nodes())
+        # print('G2 Edges:',G2.edges())
+
+        '''
+        trajectory = gsd.hoomd.open('/home/bj21/simulations/thiol-ene/network_polymerization/workspace/b00fe99f07ce7c0bc08a9cf517888351/polymerize.gsd')
+
+        frame = trajectory[-1]
+        dummy_id = len(frame.bonds.types)-1
+        bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+        '''
+
+        G = nx.Graph()
+        G.add_edges_from(bonds)
+        # find all disconnected/connected sub-networks
+        # sort the list of networks by length
+        Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+
+        # strand lengths (in entire system. If you only want the ones in the gel, you need to look at Gcc[0] only)
+        # bonds in biggest cluster:
+        new_bonds = []
+        for each in bonds:
+            for i in each:
+                if i in Gcc[0]:
+                    new_bonds.append(each)
+                    continue
+        # make cluster of biggest graph
+        gel_graph = nx.Graph()
+        gel_graph.add_edges_from(new_bonds)
+    else:
+        # make a graph - each bond is an edge
+        G = nx.Graph()
+        G.add_edges_from(bonds)
+        # find all disconnected/connected sub-networks
+        # sort the list of networks by length
+        Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+            
+        # strand lengths (in entire system. If you only want the ones in the gel, you need to look at Gcc[0] only)
+        # bonds in biggest cluster:
+        new_bonds = []
+        for each in bonds:
+            for i in each:
+                if i in Gcc[0]:
+                    new_bonds.append(each)
+                    continue
+        # make cluster of biggest graph
+        gel_graph = nx.Graph()
+        gel_graph.add_edges_from(new_bonds)
+    
+
+    draw_graph(gel_graph)
+    plt.show()
+    gel_graph = remove_extenders(gel_graph)
+    draw_graph(gel_graph)
+    plt.show()
+
+    effective_graph, ineffective_graph = id_ineffective_junctions(gel_graph)
+    draw_graph(effective_graph)
+    plt.show()
+    draw_graph(ineffective_graph)
+    plt.show()
+    exit()
+
+
+
+
+
+
+
+
+
+    print("calculating dangling ends")
+    dangling_end_strands = []
+    dangling_end_lengths = []
+
+    no_danglingEnds_graph, dangling_ends = remove_dangling_ends(G2)
+    # print('no_danglingEnds_graph edges', no_danglingEnds_graph.edges())
+    # print('no_danglingEnds_graph nodes', no_danglingEnds_graph.nodes())
+    dangling_end_graph = G2.copy()
+    for x in G2.nodes():
+        if x not in dangling_ends:
+            dangling_end_graph.remove_node(x)
+    # print("dangling ends:",dangling_end_graph.nodes())
+    # print("dangling end edges:",dangling_end_graph.edges())
+
+    for dangling_strand in nx.connected_components(dangling_end_graph):
+        dangling_strand = list(dangling_strand)
+        # print(dangling_strand)
+        dangling_end_strands.append(dangling_strand)
+        dangling_end_lengths.append(len(dangling_strand))
+    unique_dangling_end_lengths,count = np.unique(dangling_end_lengths,return_counts=True)
+    dangling_end_data = list(zip(unique_dangling_end_lengths,count))
+    # print(dangling_end_data)
+
+    print("calculating loops",  flush=True)
+    start = datetime.now()
+    crosslink_graph = remove_extenders(no_danglingEnds_graph)
+    # print('crosslink_graph edges', crosslink_graph.edges())
+    # print('crosslink_graph nodes', crosslink_graph.nodes())
+    print('start loop analysis:',start,  flush=True)
+    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4),  flush=True)
+    print('end loop analysis:',datetime.now(),  flush=True)
+    print('duration:',datetime.now()-start,  flush=True)
+    # lengths_loops = np.array([len(l) for l in loops])
+    loop_types = np.array([classify_loop_type_simple(l) for l in loops])
+    primary_edges, secondary_edges, tertiary_edges, quaternary_edges = categorize_loop_edges(loops, crosslink_graph)
+    primary_lengths, secondary_lengths, tertiary_lengths, quaternary_lengths = get_length_categorized_loops(primary_edges,secondary_edges,tertiary_edges,quaternary_edges)
+    # print('primary edges:',primary_edges)
+    # print('secondary edges:',secondary_edges)
+    # print('tertiary edges:',tertiary_edges)
+    # print('quaternary edges:',quaternary_edges)
+    #if testing, print out the ids of the particles participating in loops
+
+    if (testing):
+        for i in range(len(loops)):
+            print("identified loop:",loops[i]," as type:",loop_types[i])
+
+    if (testing):
+        out_frame = frame
+        out_frame.particles.velocity[:] = -1
+        for strand in dangling_end_strands:
+            for bead in strand:
+                out_frame.particles.velocity[bead] = [0,0,0]
+        for i,loop in enumerate(loops):
+            match loop_types[i]:
+                case "primary":
+                    type = 1
+                case "secondary":
+                    type = 2
+                case "tertiary":
+                    type = 3
+                case "quaternary+":
+                    type = 4
+            for bead in loop:
+                out_frame.particles.velocity[bead] = [type,0,0]
+        output_gsd = gsd.hoomd.open(jdir + f'/test_{os.path.basename(__file__)}'.replace('.py','.gsd'), 'w')
+        output_gsd.append(out_frame)
+
+    #Format the loop data as discrete histograms
+    unique_primary_lengths,count = np.unique(primary_lengths,return_counts=True)
+    primary_data = list(zip(unique_primary_lengths,count))
+    print('primary lengths and counts:',primary_data)
+    unique_secondary_lengths,count = np.unique(secondary_lengths,return_counts=True)
+    secondary_data = list(zip(unique_secondary_lengths,count))
+    print('secondary lengths and counts:',secondary_data)
+    unique_tertiary_lengths,count = np.unique(tertiary_lengths,return_counts=True)
+    tertiary_data = list(zip(unique_tertiary_lengths,count))
+    print('tertiary lengths and counts:',tertiary_data)
+    unique_quaternary_lengths,count = np.unique(quaternary_lengths,return_counts=True)
+    quaternary_data = list(zip(unique_quaternary_lengths,count))
+    print('quarternary lengths and counts:', quaternary_data)
+
+    #write the data to a file
+    # Here, each line is a tuple of the form (loop_size, count), with header lines 
+    # indicating the type of loop data to follow until the next header
+    with open(jdir + "/loop_counts.txt", "w") as f:
+        f.write("dangling_strand data\n")
+        for x in dangling_end_data:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+
+        f.write("primary_loop_size data\n")
+        for x in primary_data:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+
+        f.write("secondary_loop_size data\n")
+        for x in secondary_data:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+
+        f.write("tertiary_loop_size data\n")
+        for x in tertiary_data:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+
+        f.write("quaternary_loop_size data\n")
+        for x in quaternary_data:
+            line = str(x[0]) + " " + str(x[1]) + "\n"
+            f.write(line)
+
+
 def xlink_rdf_analysis(job_id):
     print(
     '''
@@ -761,7 +1180,9 @@ def xlink_rdf_analysis(job_id):
         raise FileNotFoundError("File not found")
         exit()
     # open the polymerized gsd file's trajectory (list of frames)
-    trajectory = gsd.hoomd.open(input_file)
+    # trajectory = gsd.hoomd.open(input_file)
+    trajectory = gsd.hoomd.open(input_file, mode='r')
+    print(np.shape(trajectory[-1].particles.position))
     frame = trajectory[-1]
     dummy_id = len(frame.bonds.types)-1
     bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
@@ -788,11 +1209,14 @@ def xlink_rdf_analysis(job_id):
     ene_crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) == 3]
     thiol_crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) == 4]
     print("# of ene crosslinks:",len(ene_crosslink_beads))
+    # print('ene_crosslink_beads:',ene_crosslink_beads)
     print("# of thiol crosslinks:",len(thiol_crosslink_beads))
+    # print('thiol_crosslink_beads:',thiol_crosslink_beads)
+    # exit()
     crosslinks_only_traj = []
     # make the new frames
     for frame in trajectory[-5:-1]:
-        crosslinks_only_frame = frame
+        crosslinks_only_frame = gsd.hoomd.Frame()
         crosslinks_only_frame.particles.position = frame.particles.position[ene_crosslink_beads + thiol_crosslink_beads]
         crosslinks_only_frame.particles.typeid = frame.particles.typeid[ene_crosslink_beads + thiol_crosslink_beads]
         crosslinks_only_frame.particles.orientation = frame.particles.orientation[ene_crosslink_beads + thiol_crosslink_beads]
@@ -805,36 +1229,42 @@ def xlink_rdf_analysis(job_id):
         crosslinks_only_frame.particles.angmom = frame.particles.angmom[ene_crosslink_beads + thiol_crosslink_beads]
         crosslinks_only_frame.particles.image = frame.particles.image[ene_crosslink_beads + thiol_crosslink_beads]
         crosslinks_only_frame.particles.N = len(ene_crosslink_beads) + len(thiol_crosslink_beads)
+        crosslinks_only_frame.particles.types = frame.particles.types
+        crosslinks_only_frame.configuration = frame.configuration
 
         crosslinks_only_traj.append(crosslinks_only_frame)
     #get the rdfs
     # 'C' = tetrafunctional thiol crosslinker center, 'Carbon' = chain growthed ene
-    rdf_ene, norm_ene = intermolecular_rdf(crosslinks_only_traj, 
-                                           A_name='Carbon', B_name='Carbon', 
-                                           r_max=10.0, r_min=0.25, bins=100, 
-                                           exclude_bonded=False,)
-    rdf_thiol, norm_thiol = intermolecular_rdf(crosslinks_only_traj, 
-                                               A_name='C', B_name='C', 
-                                               r_max=10.0, r_min=0.25, bins=100, 
-                                               exclude_bonded=False,)
-    rdf_thiol_ene, norm_thiol_ene = intermolecular_rdf(crosslinks_only_traj, 
-                                                       A_name='C', B_name='Carbon', 
-                                                       r_max=10.0, r_min=0.25, bins=100, 
-                                                       exclude_bonded=False,) 
+    job = project.open_job(id=job_id)
+    if job.sp.get('chain_side_reaction_probability') != 0.0:
+        rdf_ene, norm_ene = intermolecular_rdf(crosslinks_only_traj, 
+                                            A_name='Carbon', B_name='Carbon', 
+                                            r_max=10.0, r_min=0.25, bins=500, 
+                                            exclude_bonded=False,)
+        with open(jdir + "/ene_ene_rdf.txt", "w") as f:
+            f.write("r g(r)\n")
+            for r, g in zip(rdf_ene.bin_centers, rdf_ene.rdf*norm_ene):
+                f.write(f"{r} {g}\n")
+    if job.sp.get("crosslinker_percent") != 0.0:
+        rdf_thiol, norm_thiol = intermolecular_rdf(crosslinks_only_traj, 
+                                                A_name='C', B_name='C', 
+                                                r_max=10.0, r_min=0.25, bins=500, 
+                                                exclude_bonded=False,)
+        with open(jdir + "/thiol_thiol_rdf.txt", "w") as f:
+            f.write("r g(r)\n")
+            for r, g in zip(rdf_thiol.bin_centers, rdf_thiol.rdf*norm_thiol):
+                f.write(f"{r} {g}\n")
+    if job.sp.get("crosslinker_percent") != 0.0 and job.sp.get('chain_side_reaction_probability') != 0.0:
+        rdf_thiol_ene, norm_thiol_ene = intermolecular_rdf(crosslinks_only_traj, 
+                                                        A_name='C', B_name='Carbon', 
+                                                        r_max=10.0, r_min=0.25, bins=500, 
+                                                        exclude_bonded=False,)
+        with open(jdir + "/thiol_ene_rdf.txt", "w") as f:
+            f.write("r g(r)\n")
+            for r, g in zip(rdf_thiol_ene.bin_centers, rdf_thiol_ene.rdf*norm_thiol_ene):
+                f.write(f"{r} {g}\n")
 
     # save the rdf data into txts
-    with open(jdir + "/ene_ene_rdf.txt", "w") as f:
-        f.write("r g(r)\n")
-        for r, g in zip(rdf_ene.bin_centers, rdf_ene.rdf*norm_ene):
-            f.write(f"{r} {g}\n")
-    with open(jdir + "/thiol_thiol_rdf.txt", "w") as f:
-        f.write("r g(r)\n")
-        for r, g in zip(rdf_thiol.bin_centers, rdf_thiol.rdf*norm_thiol):
-            f.write(f"{r} {g}\n")
-    with open(jdir + "/thiol_ene_rdf.txt", "w") as f:
-        f.write("r g(r)\n")
-        for r, g in zip(rdf_thiol_ene.bin_centers, rdf_thiol_ene.rdf*norm_thiol_ene):
-            f.write(f"{r} {g}\n")
 
 
 def strand_lengths_analysis(job_id):
