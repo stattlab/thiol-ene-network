@@ -850,7 +850,7 @@ def defect_analysis(job_id,testing=False):
     # print('crosslink_graph edges', crosslink_graph.edges())
     # print('crosslink_graph nodes', crosslink_graph.nodes())
     print('start loop analysis:',start,  flush=True)
-    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4),  flush=True)
+    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4))
     print('end loop analysis:',datetime.now(),  flush=True)
     print('duration:',datetime.now()-start,  flush=True)
     # lengths_loops = np.array([len(l) for l in loops])
