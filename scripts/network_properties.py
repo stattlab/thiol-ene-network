@@ -1459,7 +1459,82 @@ def contract_bonds_analysis(job_id):
         f.write("n_effective_particles\tn_ineffective_particles\n")
         f.write(f"{len(gel_G.nodes())-len(ineffective_particles)}\t{len(ineffective_particles)}\n")
 
+def scanlan_case_analysis_on_contract_bonds(job_id):
+    project = signac.get_project()
+    direc = project.fn('') + 'workspace/'
 
+    # for job_id in os.listdir(direc):
+    jdir = direc + job_id
+    input_file = direc + job_id + "/contract_bonds.gsd"
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError("File not found")
+        exit()
+    # open the contract_bonds gsd file's trajectory (list of frames)
+    trajectory = gsd.hoomd.open(input_file)
+
+    frame = trajectory[-1]
+    dummy_id = len(frame.bonds.types)-1
+    bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+    
+    G = nx.Graph()
+    G.add_edges_from(bonds)
+    # find all disconnected/connected sub-networks
+    # sort the list of networks by length
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+        
+    # strand lengths (in entire system. If you only want the ones in the gel, you need to look at Gcc[0] only)
+    # bonds in biggest cluster:
+    gel_bonds = []
+    for each in bonds:
+        for i in each:
+            if i in Gcc[0]:
+                gel_bonds.append(each)
+                continue
+    # make cluster of biggest graph
+    gel_G = nx.Graph()
+    gel_G.add_edges_from(gel_bonds)
+
+    # categorize crosslinks as effective, bridging, or ineffective
+    effective_crosslinks = []
+    bridging_crosslinks = []
+    ineffective_crosslinks = []
+    crosslink_beads = [x for  x in gel_G.nodes() if gel_G.degree(x) >= 3]
+    functionalities = []
+    for x in crosslink_beads:
+        #count how many effective bonds are on it
+        count = 0
+        for bond in gel_G.edges(x):
+            if dist_pbc(frame.particles.position[bond[0]],\
+                        frame.particles.position[bond[1]],\
+                        Box=frame.configuration.box[0:3]) > 0.005:
+                count += 1
+        if count == 0:
+            ineffective_crosslinks.append(x)
+        elif count == 1:
+            print("ERROR: Impossible crosslink found:",x)
+            print("This crosslink has only one effective bond on it. This is impossible.")
+            print("Bond lengths: ",)
+            for bond in gel_G.edges(x):
+                print(dist_pbc(frame.particles.position[bond[0]],\
+                        frame.particles.position[bond[1]],\
+                        Box=frame.configuration.box[0:3]))
+            exit()
+        elif count == 2:
+            bridging_crosslinks.append(x)
+        elif count >= 3:
+            effective_crosslinks.append(x)
+            functionalities.append(count)
+
+    print("number of crosslinks:",len(crosslink_beads))
+    print("effective crosslinks:",len(effective_crosslinks)," ",len(effective_crosslinks)/len(crosslink_beads))
+    print("bridging crosslinks:",len(bridging_crosslinks)," ",len(bridging_crosslinks)/len(crosslink_beads))
+    print("ineffective crosslinks:",len(ineffective_crosslinks)," ",len(ineffective_crosslinks)/len(crosslink_beads))
+    print("average functionality of effective crosslinks:",np.average(functionalities))
+
+    # save the data
+    with open(jdir + "/contract_bonds_analysis/scanlan_case_analysis.txt", "w") as f:
+        f.write("n_crosslinkers\tn_effective_crosslinkers\tn_bridging_crosslinkers\tn_ineffective_crosslinkers\tavg_effective_Functionality\n")
+        f.write(f"{len(crosslink_beads)}\t{len(effective_crosslinks)}\t{len(bridging_crosslinks)}\t{len(ineffective_crosslinks)}\t{np.average(functionalities)}\n")
 
 
 def main(job_id):

@@ -91,7 +91,8 @@ def modulus_analyzed(job):
 def contract_bonds_analyzed(job):
     return job.isfile('contract_bonds_analysis/effective_strand_hist.txt') and \
     job.isfile('contract_bonds_analysis/ineffective_strand_hist.txt') and \
-    job.isfile('contract_bonds_analysis/overall.txt')
+    job.isfile('contract_bonds_analysis/overall.txt') and \
+    job.isfile('contract_bonds_analysis/scanlan_case_analysis.txt')
 
 #-----------------------
 # Simulation operations
@@ -218,6 +219,7 @@ def gelation_2_analysis(job):
 def contract_bonds_analysis(job):
     import scripts.network_properties
     scripts.network_properties.contract_bonds_analysis(job.id)
+    scripts.network_properties.scanlan_case_analysis_on_contract_bonds(job.id)
     print('analyzed contract bonds: ',job.id)
 
 if __name__ == "__main__":
