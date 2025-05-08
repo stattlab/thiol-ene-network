@@ -1460,6 +1460,21 @@ def contract_bonds_analysis(job_id):
         f.write(f"{len(gel_G.nodes())-len(ineffective_particles)}\t{len(ineffective_particles)}\n")
 
 def scanlan_case_analysis_on_contract_bonds(job_id):
+    """
+    Analyze the contract_bonds.gsd file to find the effective network from the 
+    perspective of the crosslinks and scanlan case criterion.
+
+    Outcome:
+        Summary crosslink properties in the contract_bonds_analysis/scanlan_case_analysis.txt
+        *The average functionality of the effective crosslinks does NOT include the 
+        bridging crosslinks.
+        
+        The following crosslink attributes in file 
+            contract_bonds_analysis/crosslink_properties.txt:
+        - types (Tetra-S or Carbon)
+        - effective functionality (number of effective bonds on it)
+        - scanlan classification (effective, bridging, ineffective)
+    """
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
@@ -1500,6 +1515,9 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
     ineffective_crosslinks = []
     crosslink_beads = [x for  x in gel_G.nodes() if gel_G.degree(x) >= 3]
     functionalities = []
+    pd_types = []
+    pd_effective_functionalities = []
+    pd_scanlan_classifications = []
     for x in crosslink_beads:
         #count how many effective bonds are on it
         count = 0
@@ -1525,6 +1543,23 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
             effective_crosslinks.append(x)
             functionalities.append(count)
 
+        # Save crosslink properties to lists for data frame
+        match frame.particles.typeid[x]:
+            case 5:
+                pd_types.append("Carbon")
+            case 6:
+                pd_types.append("Tetra-S")
+            case _:
+                print("ERROR: Unknown crosslink type found:",frame.particles.typeid[x], "at bead:",x)
+                raise ValueError("Unknown crosslink type")
+        pd_effective_functionalities.append(count)
+        if count == 2:
+            pd_scanlan_classifications.append("bridging")
+        elif count >= 3:
+            pd_scanlan_classifications.append("effective")
+        else:
+            pd_scanlan_classifications.append("ineffective")
+
     print("number of crosslinks:",len(crosslink_beads))
     print("effective crosslinks:",len(effective_crosslinks)," ",len(effective_crosslinks)/len(crosslink_beads))
     print("bridging crosslinks:",len(bridging_crosslinks)," ",len(bridging_crosslinks)/len(crosslink_beads))
@@ -1536,6 +1571,20 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
         f.write("n_crosslinkers\tn_effective_crosslinkers\tn_bridging_crosslinkers\tn_ineffective_crosslinkers\tavg_effective_Functionality\n")
         f.write(f"{len(crosslink_beads)}\t{len(effective_crosslinks)}\t{len(bridging_crosslinks)}\t{len(ineffective_crosslinks)}\t{np.average(functionalities)}\n")
 
+    # make a data frame of the crosslink properties
+    # crosslink_df = pd.DataFrame({
+    #     'crosslink_id': crosslink_beads,
+    #     'type': pd_types,
+    #     'effective_functionality': pd_effective_functionalities,
+    #     'scanlan_classification': pd_scanlan_classifications
+    # })
+
+    # save the data frame to a csv file
+    # crosslink_df.to_csv(jdir + "/contract_bonds_analysis/crosslink_properties.csv", index=False)
+    with open(jdir + "/contract_bonds_analysis/crosslink_properties.txt", "w") as f:
+        f.write("crosslink_id\ttype\teffective_functionality\tscanlan_classification\n")
+        for i in range(len(crosslink_beads)):
+            f.write(f"{crosslink_beads[i]}\t{pd_types[i]}\t{pd_effective_functionalities[i]}\t{pd_scanlan_classifications[i]}\n")
 
 def main(job_id):
     xlink_rdf_analysis(job_id)
