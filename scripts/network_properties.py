@@ -1579,12 +1579,92 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
     #     'scanlan_classification': pd_scanlan_classifications
     # })
 
-    # save the data frame to a csv file
-    # crosslink_df.to_csv(jdir + "/contract_bonds_analysis/crosslink_properties.csv", index=False)
+    # save the data to a txt file
     with open(jdir + "/contract_bonds_analysis/crosslink_properties.txt", "w") as f:
         f.write("crosslink_id\ttype\teffective_functionality\tscanlan_classification\n")
         for i in range(len(crosslink_beads)):
             f.write(f"{crosslink_beads[i]}\t{pd_types[i]}\t{pd_effective_functionalities[i]}\t{pd_scanlan_classifications[i]}\n")
+
+def crosslinker_heterogeneity_by_VV(job_id):
+    """
+    Analyze the final network to check for voronoi volume heterogeneity of EFFECTIVE 
+    crosslinkers. (requires the scanlan_case_analysis_on_contract_bonds function to be 
+    run first)
+    
+    Output:
+        - voronoi volume distribution of all elastically effective crosslinkers
+        - voronoi volume distribution of elastically effective tetrathiol crosslinkers
+        - voronoi volume distribution of elastically effective ene crosslinkers
+        # These were discarded due to the complexity necessary for unknown returns
+        # - distribution of distance from center of cell to all effective crosslinkers 
+        #         ("Centrality")
+        # - distribution of distance from center of cell to effective tetrathiol crosslinkers
+        # - distribution of distance from center of cell to effective ene crosslinkers
+    """
+    # get the project and job
+    project = signac.get_project()
+    job = project.open_job(id=job_id)
+
+    #read the crosslink properties from the file
+    crosslink_properties = np.genfromtxt(job.fn('contract_bonds_analysis/crosslink_properties.txt'),skip_header=1,\
+        dtype='str', delimiter='\t')
+    # crosslink_id	type	effective_functionality	scanlan_classification
+
+    # read the frame from the gsd file
+    input_file = job.fn("polymerize.gsd")
+    frame = gsd.hoomd.open(input_file)[-1]
+    pos = frame.particles.position
+
+    # get the crosslinker positions based on the crosslink properties
+    effective_ene_crosslinkers_pos = []
+    effective_thiol_crosslinkers_pos = []
+    for i in range(len(crosslink_properties)):
+        if crosslink_properties[i][1] == "Tetra-S" and crosslink_properties[i][3] == "effective":
+            effective_thiol_crosslinkers_pos.append(pos[int(crosslink_properties[i][0])])
+        elif crosslink_properties[i][1] == "Carbon" and crosslink_properties[i][3] == "effective":
+            effective_ene_crosslinkers_pos.append(pos[int(crosslink_properties[i][0])])
+    effective_ene_crosslinkers_pos = np.array(effective_ene_crosslinkers_pos).reshape(-1,3)
+    effective_thiol_crosslinkers_pos = np.array(effective_thiol_crosslinkers_pos).reshape(-1,3)
+
+    # set up for voronoi volume calculation
+    import freud
+    box = freud.box.Box(Lx=frame.configuration.box[0], \
+                        Ly=frame.configuration.box[1], \
+                        Lz=frame.configuration.box[2])
+    voro = freud.locality.Voronoi()
+    # get the voronoi volume of ALL the effective crosslinkers
+    if job.sp['crosslinker_percent'] > 0 and job.sp['chain_side_reaction_probability'] > 0.0:
+        q_pos = np.concatenate((effective_ene_crosslinkers_pos, effective_thiol_crosslinkers_pos), axis=0)
+        voro.compute((box, q_pos))
+        volumes = voro.volumes
+        polytopes = voro.polytopes
+        np.savetxt(job.fn('contract_bonds_analysis/voronoi_volumes_all.txt'), volumes, fmt='%f')
+    else:
+        np.savetxt(job.fn('contract_bonds_analysis/voronoi_volumes_all.txt'), [], fmt='%f')
+    # get the voronoi volume of the effective tetrathiol crosslinkers
+    if job.sp['crosslinker_percent'] > 0:
+        q_pos = effective_thiol_crosslinkers_pos
+        voro.compute((box, q_pos))
+        volumes = voro.volumes
+        polytopes = voro.polytopes
+        np.savetxt(job.fn('contract_bonds_analysis/voronoi_volumes_thiol.txt'), volumes, fmt='%f')
+    else:
+        np.savetxt(job.fn('contract_bonds_analysis/voronoi_volumes_thiol.txt'), [], fmt='%f')
+    # get the voronoi volume of the effective ene crosslinkers
+    if job.sp['chain_side_reaction_probability'] > 0.0:
+        q_pos = effective_ene_crosslinkers_pos
+        voro.compute((box, q_pos))
+        volumes = voro.volumes
+        polytopes = voro.polytopes
+        np.savetxt(job.fn('contract_bonds_analysis/voronoi_volumes_ene.txt'), volumes, fmt='%f')
+    else:
+        np.savetxt(job.fn('contract_bonds_analysis/voronoi_volumes_ene.txt'), [], fmt='%f')
+
+    # centrality = np.zeros(len(volumes))
+    # for i in range(len(polytopes)):
+    #     CM = calc_pbc_CM(polytopes[i],box)
+    #     # calculate the distance from the center of mass to the points
+    #     centrality[i] = np.sqrt()
 
 def main(job_id):
     xlink_rdf_analysis(job_id)

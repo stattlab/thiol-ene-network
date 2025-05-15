@@ -95,6 +95,12 @@ def contract_bonds_analyzed(job):
     job.isfile('contract_bonds_analysis/scanlan_case_analysis.txt') and \
     job.isfile('contract_bonds_analysis/crosslink_properties.txt')
 
+@MyProject.label
+def vv_analyzed(job):
+    return job.isfile('contract_bonds_analysis/voronoi_volumes_all.txt') and \
+            job.isfile('contract_bonds_analysis/voronoi_volumes_thiol.txt') and \
+            job.isfile('contract_bonds_analysis/voronoi_volumes_ene.txt')
+
 #-----------------------
 # Simulation operations
 #-----------------------
@@ -222,6 +228,14 @@ def contract_bonds_analysis(job):
     scripts.network_properties.contract_bonds_analysis(job.id)
     scripts.network_properties.scanlan_case_analysis_on_contract_bonds(job.id)
     print('analyzed contract bonds: ',job.id)
+
+@MyProject.pre(reacted and contract_bonds_analyzed)
+@MyProject.post(vv_analyzed)
+@MyProject.operation
+def vv_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.crosslinker_heterogeneity_by_VV(job.id)
+    print('analyzed voronoi volumes of job: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()
