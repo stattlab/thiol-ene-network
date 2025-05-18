@@ -179,5 +179,16 @@ def calculate_mw(job_id):
             sum_den += float(l) * counts[l]
 
         m_w.append(sum_num/sum_den)
+    
+    trajectory_conversion_txt = jdir + "/trajectory_conversion.txt"
+    if os.path.isfile(trajectory_conversion_txt):
+        data = np.loadtxt(trajectory_conversion_txt, delimiter=' ', skiprows=1)
+        new_data = np.array([[d[0],d[1],d[2],d[3],d[4], m_w[i]] for n,d in enumerate(data)])
+        # dump into conversion file
+        header = "frame conversion largest_molecule average_molecule weight_average_molecule"
+        np.savetxt(trajectory_conversion_txt, new_data, header=header, fmt='%i %.16f %.16f %.16f %.16f', comments='')
+    else:
+        print("no conversion file")
+
 
 
