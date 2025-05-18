@@ -3,7 +3,7 @@ import numpy as np
 import signac
 import json
 import gsd, gsd.hoomd 
-from collections import defaultdict
+from collections import defaultdict, Counter
 from scripts.extract import connected_components
 
 '''
@@ -26,14 +26,24 @@ def conversion_molecule_sizes(N_0, trajectory, dummy_id):
         connections = connected_components(bonds)
         strand_lengths = []
         n_molecules = 0
+
         for strand in connections:
             strand_lengths.append(len(strand))
             n_molecules +=1
+        
+        counts = dict(Counter(strand_lengths))
+        sum_num = 0
+        sum_den = 0
+        for l in list(counts.keys()):
+            sum_num += float(l)**2 * counts[l]
+            sum_den += float(l) * counts[l]
+
+        m_w = sum_num/sum_den
 
         # calculate the extent of the reaction based off of molecule formation
         # also store the largest molecule size and average molecule size
         extent_of_reaction = (N_0 - n_molecules)/N_0
-        traj_conversion.append([i,extent_of_reaction, np.max(strand_lengths), np.average(strand_lengths)])
+        traj_conversion.append([i,extent_of_reaction, np.max(strand_lengths), np.average(strand_lengths), m_w])
 
         # calculate functionality conversion
         thiols = type_map.count(0) 
@@ -59,6 +69,7 @@ def calculate_conversion(job_id):
     if not os.path.isfile(polymerize_gsd):
          return "oops no polymer file"
     print(polymerize_gsd)
+
     trajectory = gsd.hoomd.open(polymerize_gsd)
     print(len(trajectory))
     # get the dummy_bond_id and number of bonds from the initial frame
@@ -95,14 +106,14 @@ def calculate_conversion(job_id):
         # ignore past repeated frames
         repeats = int(old_conversion_values.count(data[-1,1]))
         # get the new values and frames
-        new_convs = [[float(i[1]),i[2],i[3]] for i in t_c if i[1] >= data[-1][1]][repeats:]
+        new_convs = [[float(i[1]),i[2],i[3], i[4]] for i in t_c if i[1] >= data[-1][1]][repeats:]
         t_c_new = np.array([[int(n + 1 + int(data[-1][0]))] + i for n,i in enumerate(new_convs)])
         if t_c_new.size > 0:
             t_c = np.concatenate((data, t_c_new))
     
     # dump the molecule conversions into the txt
-    header = "frame conversion largest_molecule average_molecule"
-    np.savetxt(trajectory_conversion_txt, t_c, header=header, fmt='%i %.16f %.16f %.16f', comments='')
+    header = "frame conversion largest_molecule average_molecule weight_average_molecule"
+    np.savetxt(trajectory_conversion_txt, t_c, header=header, fmt='%i %.16f %.16f %.16f %.16f', comments='')
 
     # thiol and ene functionality conversion
     # if there is already data stored, add onto the old conversion data (do not restart frame numbering)
@@ -120,12 +131,53 @@ def calculate_conversion(job_id):
             # counting final repeats:
             new_convs = new_convs[repeats:]
             old_conversion_values = [d[1] for d in data]
-
             t_te_new = np.array([[int(n + 1 + int(data[-1][0])), i[0], i[1]] for n,i in enumerate(new_convs)])
             if t_te_new.size > 0:
                 t_te = np.concatenate((data, t_te_new))
             # dump the thiol-ene conversions into the txt
             np.savetxt(thiolene_conversion_txt, t_te, header=header, fmt='%i %.16f %.16f', comments='')
+
+'''
+runs on polymerize file in the workspace, adds on to conversion text files that are already recorded
+calculates weight average molecular weight of molecules during the polymerization
+records as the fifth column of trajectory_converison.txt
+'''
+def calculate_mw(job_id):
+    # find workspace directory
+    direc = project.fn('') + "workspace/"
+    jdir = direc + job_id
+    polymerize_gsd = jdir + "/polymerize.gsd"
+    if not os.path.isfile(polymerize_gsd):
+         return "oops no polymer file"
+    print(polymerize_gsd)
+
+    trajectory = gsd.hoomd.open(polymerize_gsd)
+    print(len(trajectory))
+
+    # get the dummy_bond_id and number of bonds from the initial frame
+    initial_frame = trajectory[0]
+    dummy_id = len(initial_frame.bonds.types)-1
+
+    bonds = initial_frame.bonds.group[initial_frame.bonds.typeid!=dummy_id] # dummy type bond 
+
+    m_w = []
+    for i,frame in enumerate(trajectory):
+        # get all the molecules in the system to analyze their lengths
+        bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+        connections = connected_components(bonds)
+        strand_lengths = []
+        for strand in connections:
+            strand_lengths.append(len(strand))
+            n_molecules +=1
         
-    
-    
+        # calculate and store weight-average molecular weight
+        counts = dict(Counter(strand_lengths))
+        sum_num = 0
+        sum_den = 0
+        for l in list(counts.keys()):
+            sum_num += float(l)**2 * counts[l]
+            sum_den += float(l) * counts[l]
+
+        m_w.append(sum_num/sum_den)
+
+
