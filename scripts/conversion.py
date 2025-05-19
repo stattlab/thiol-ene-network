@@ -168,8 +168,7 @@ def calculate_mw(job_id):
         strand_lengths = []
         for strand in connections:
             strand_lengths.append(len(strand))
-            n_molecules +=1
-        
+
         # calculate and store weight-average molecular weight
         counts = dict(Counter(strand_lengths))
         sum_num = 0
@@ -183,7 +182,7 @@ def calculate_mw(job_id):
     trajectory_conversion_txt = jdir + "/trajectory_conversion.txt"
     if os.path.isfile(trajectory_conversion_txt):
         data = np.loadtxt(trajectory_conversion_txt, delimiter=' ', skiprows=1)
-        new_data = np.array([[d[0],d[1],d[2],d[3],d[4], m_w[i]] for n,d in enumerate(data)])
+        new_data = np.array([[d[0],d[1],d[2],d[3], m_w[n]] for n,d in enumerate(data)])
         # dump into conversion file
         header = "frame conversion largest_molecule average_molecule weight_average_molecule"
         np.savetxt(trajectory_conversion_txt, new_data, header=header, fmt='%i %.16f %.16f %.16f %.16f', comments='')

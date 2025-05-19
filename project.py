@@ -106,28 +106,6 @@ def vv_analyzed(job):
             job.isfile('contract_bonds_analysis/voronoi_volumes_ene.txt')
 
 
-@MyProject.label
-def conversion_recorded(job):
-    return job.isfile("trajectory_conversion.txt")
-
-@MyProject.label
-def mw_recorded(job):
-    data = np.loadtxt(job.fn('trajectory_conversion.txt'), delimiter=' ', skiprows=1)
-    if len(data[1]) == 5:
-        return True
-    else:
-        False
-
-@MyProject.pre(conversion_recorded)
-@MyProject.post(mw_recorded)
-@MyProject.operation
-def calculate_conversion(job):
-    import scripts.conversion
-    print("now conducting trajectory conversion analysis")
-    scripts.conversion.calculate_conversion(job.id)
-    print('analyzed the trajectory conversion of ', job.id)
-
-
 
 #-----------------------
 # Simulation operations
