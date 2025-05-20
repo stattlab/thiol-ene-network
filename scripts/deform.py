@@ -42,7 +42,24 @@ class BoxWriter(hoomd.custom.Action):
     def act(self, timestep):
         pass
 
+class NVTCustomBoxVariant(hoomd.variant.box.BoxVariant):
+    def __init__(self,initial_box,t_start,t_ramp,final_lam):
+        hoomd.variant.box.BoxVariant.__init__(self)
+        self.initial_box = initial_box
+        self.deform_time = t_ramp
+        self.t_start = t_start
+        self.initial_box = None
+        self.final_lam = final_lam
 
+    def __call__(self, timestep):
+        if timestep > self.t_start + self.deform_time:
+            lam = self.final_lam
+        elif timestep < self.t_start:
+            lam = 1
+        else:
+            lam = (timestep - self.t_start)/self.t_ramp*(self.final_lam-1) + 1 # 1 is the initial lam
+        return [self.initial_box[0]*lam, self.initial_box[1], self.initial_box[2], 
+                self.initial_box[3], self.initial_box[4], self.initial_box[5]]
 
 def main(gsd_file_path,frame_number):
     parent_path = str(Path(gsd_file_path).parent.absolute())
@@ -63,17 +80,15 @@ def main(gsd_file_path,frame_number):
     # NVT deformation
     lam = 3.0
     deform_time = (lam - 1) / delta_lam * step_size
-    box_variant = hoomd.variant.Ramp(A=0,B=1,t_start=sim.timestep,t_ramp=int(deform_time))
     initial_box = sim.state.box
-    final_box = [initial_box.Lx*lam,
-                 initial_box.Ly*1/np.sqrt(lam),
-                 initial_box.Lz*1/np.sqrt(lam)]
-    deform_box_interpolate = hoomd.variant.box.Interpolate(initial_box=initial_box,
-                                                           final_box=final_box,
-                                                           variant=box_variant)
 
-    box_resize = hoomd.update.BoxResize(trigger=hoomd.trigger.Periodic(step_size),
-                                        box=deform_box_interpolate)
+    deform_box_variant = NVTCustomBoxVariant(initial_box=initial_box,
+                                              t_start=sim.timestep,
+                                              t_ramp=deform_time,
+                                              final_lam=lam)
+
+    box_resize = hoomd.update.BoxResize(trigger=hoomd.trigger.Periodic(1),
+                                        box=deform_box_variant,)
     sim.operations.updaters.append(box_resize)
 
     #-----------------------Force fields------------------------
