@@ -45,10 +45,9 @@ class BoxWriter(hoomd.custom.Action):
 class NVTCustomBoxVariant(hoomd.variant.box.BoxVariant):
     def __init__(self,initial_box,t_start,t_ramp,final_lam):
         hoomd.variant.box.BoxVariant.__init__(self)
-        self.initial_box = initial_box
+        self.initial_box = np.asarray(initial_box)
         self.deform_time = t_ramp
         self.t_start = t_start
-        self.initial_box = None
         self.final_lam = final_lam
 
     def __call__(self, timestep):
@@ -57,8 +56,8 @@ class NVTCustomBoxVariant(hoomd.variant.box.BoxVariant):
         elif timestep < self.t_start:
             lam = 1
         else:
-            lam = (timestep - self.t_start)/self.t_ramp*(self.final_lam-1) + 1 # 1 is the initial lam
-        return [self.initial_box[0]*lam, self.initial_box[1], self.initial_box[2], 
+            lam = (timestep - self.t_start)/self.deform_time*(self.final_lam-1) + 1 # 1 is the initial lam
+        return [self.initial_box[0]*lam, self.initial_box[1]/np.sqrt(lam), self.initial_box[2]/np.sqrt(lam), 
                 self.initial_box[3], self.initial_box[4], self.initial_box[5]]
 
 def main(gsd_file_path,frame_number):
@@ -80,7 +79,7 @@ def main(gsd_file_path,frame_number):
     # NVT deformation
     lam = 3.0
     deform_time = (lam - 1) / delta_lam * step_size
-    initial_box = sim.state.box
+    initial_box = np.asarray(sim.state.box)
 
     deform_box_variant = NVTCustomBoxVariant(initial_box=initial_box,
                                               t_start=sim.timestep,
@@ -182,7 +181,7 @@ def main(gsd_file_path,frame_number):
 
     #--------------------------Run the simulation----------------------
 
-    sim.run(int(deform_time/4))
+    sim.run(int(deform_time/4),write_at_start=True)
 
     # sim.run(deform_time+1)
 
