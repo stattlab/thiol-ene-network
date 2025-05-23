@@ -79,7 +79,10 @@ def main(gsd_file_path,frame_number):
     # NVT deformation
     lam = 3.0
     deform_time = (lam - 1) / delta_lam * step_size
-    initial_box = np.asarray(sim.state.box)
+    traj = gsd.hoomd.open(gsd_file_path,mode='r')
+    initial_box = traj[0].configuration.box
+    initial_box = np.asarray(initial_box)
+    # initial_box = np.asarray(sim.state.box)
 
     deform_box_variant = NVTCustomBoxVariant(initial_box=initial_box,
                                               t_start=sim.timestep,
