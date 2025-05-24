@@ -80,7 +80,7 @@ def main(gsd_file_path,frame_number):
     lam = 3.0
     deform_time = (lam - 1) / delta_lam * step_size
     traj = gsd.hoomd.open(gsd_file_path,mode='r')
-    initial_box = traj[0].configuration.box
+    initial_box = traj[-1].configuration.box
     initial_box = np.asarray(initial_box)
     # initial_box = np.asarray(sim.state.box)
 
