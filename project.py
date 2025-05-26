@@ -93,11 +93,14 @@ def gelation_conversion_2(job):
     
 @MyProject.label
 def contract_bonds_analyzed(job):
-    return job.isfile('contract_bonds_analysis/effective_strand_hist.txt') and \
-    job.isfile('contract_bonds_analysis/ineffective_strand_hist.txt') and \
-    job.isfile('contract_bonds_analysis/overall.txt') and \
-    job.isfile('contract_bonds_analysis/scanlan_case_analysis.txt') and \
-    job.isfile('contract_bonds_analysis/crosslink_properties.txt')
+    if job.sp['crosslinker_percent'] == 0 and job.sp['chain_side_reaction_probability'] == 0:
+        return True
+    else: 
+        return job.isfile('contract_bonds_analysis/effective_strand_hist.txt') and \
+        job.isfile('contract_bonds_analysis/ineffective_strand_hist.txt') and \
+        job.isfile('contract_bonds_analysis/overall.txt') and \
+        job.isfile('contract_bonds_analysis/scanlan_case_analysis.txt') and \
+        job.isfile('contract_bonds_analysis/crosslink_properties.txt')
 
 @MyProject.label
 def vv_analyzed(job):
