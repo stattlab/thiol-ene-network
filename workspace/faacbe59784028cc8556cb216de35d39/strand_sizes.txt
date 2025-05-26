@@ -1,0 +1,4 @@
+strand_size count
+1 720
+5 624
+6 9276

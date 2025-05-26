@@ -56,6 +56,10 @@ def contracted_bonds(job):
 # def percolation_analyzed(job):
 #     return job.isfile('percolation_data.txt')
 @MyProject.label
+def basic_strand_analyzed(job):
+    return job.isfile('strand_sizes.txt')
+
+@MyProject.label
 def defect_analyzed(job):
     return job.isfile('loop_counts.txt')
 
@@ -198,6 +202,7 @@ def xlink_rdf_analysis(job):
 
 
 @MyProject.pre(reacted)
+@MyProject.post(basic_strand_analyzed)
 @MyProject.operation
 def strand_analysis(job):
     import scripts.network_properties
