@@ -500,15 +500,26 @@ class Simulator():
         print("FIRE minimization...")
         nve = hoomd.md.methods.ConstantVolume(filter=types_to_integrate)
         fire = hoomd.md.minimize.FIRE(dt=0.005,
-                                    force_tol=0,
-                                    angmom_tol=0,
-                                    energy_tol=0)
+                                    force_tol=1e-4,
+                                    angmom_tol=1e-4,
+                                    energy_tol=1e-9) #default values multiplied by 10**-2
         fire.methods.append(nve)
         integrator.forces = []
         fire.forces = [harmonic]
         # fire.forces = [fene]
         sim.operations.integrator = fire
         sim.run(12000)
+        iteration = 0
+        while fire.converged is False:
+            iteration += 1
+            print("FIRE minimization not converged, running again... iteration",iteration)
+            sim.run(100)
+            if iteration > 10000:
+                print("FIRE minimization not converged after 10000 iterations, exiting")
+                print("Job id:",self.job.id)
+                hoomd.write.GSD.write(state=sim.state, mode='wb', filename=self.contract_bonds_gsd_file.replace(".gsd","_error.gsd"))
+                print("writing gsd file to:",self.contract_bonds_gsd_file)
+                exit(1)
 
         # #minimize energy with the Langevin thermostat at normal friction
         # langevin = hoomd.md.methods.Langevin(filter=types_to_integrate, kT=0.001,default_gamma=0.5)
