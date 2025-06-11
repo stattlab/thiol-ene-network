@@ -1,2 +1,2 @@
 n_effective_particles	n_ineffective_particles
-20257	29675
+20186	29746
