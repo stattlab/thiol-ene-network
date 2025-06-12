@@ -1371,10 +1371,22 @@ def contract_bonds_analysis(job_id):
 
     # get all bonds that are elastically ineffective
     ineffective_bonds = []
+        # find the cutoff based on the maximum bond length of known ineffective bonds
+    HS_SH_id = frame.bonds.types.index('-SH')
+    C_C_double_id = frame.bonds.types.index('CC_Double')
+    known_ineffective_bonds = frame.bonds.group[np.where((frame.bonds.typeid == HS_SH_id) | (frame.bonds.typeid == C_C_double_id))[0]]
+    max_ineffective_length = 0
+    for bond in known_ineffective_bonds:
+        length = dist_pbc(frame.particles.position[bond[0]],\
+                          frame.particles.position[bond[1]],\
+                          Box=frame.configuration.box[0:3])
+        if length > max_ineffective_length:
+            max_ineffective_length = length
+        # Use the maximum ineffective bond length as the cutoff
     for bond in gel_G.edges():
         if dist_pbc(frame.particles.position[bond[0]],\
                     frame.particles.position[bond[1]],\
-                    Box=frame.configuration.box[0:3]) < 0.005:
+                    Box=frame.configuration.box[0:3]) <= max_ineffective_length:
                     # and bond not in ineffective_bonds:
             # print("ineffective bond:",bond)
             ineffective_bonds.append(bond)
@@ -1490,6 +1502,19 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
     frame = trajectory[-1]
     dummy_id = len(frame.bonds.types)-1
     bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+
+    # find the effective bond cutoff based on the maximum bond length of known ineffective bonds
+    HS_SH_id = frame.bonds.types.index('-SH')
+    C_C_double_id = frame.bonds.types.index('CC_Double')
+    known_ineffective_bonds = frame.bonds.group[np.where((frame.bonds.typeid == HS_SH_id) | (frame.bonds.typeid == C_C_double_id))[0]]
+    max_ineffective_length = 0
+    for bond in known_ineffective_bonds:
+        length = dist_pbc(frame.particles.position[bond[0]],\
+                          frame.particles.position[bond[1]],\
+                          Box=frame.configuration.box[0:3])
+        if length > max_ineffective_length:
+            max_ineffective_length = length
+        # Use the maximum ineffective bond length as the cutoff
     
     G = nx.Graph()
     G.add_edges_from(bonds)
@@ -1518,13 +1543,14 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
     pd_types = []
     pd_effective_functionalities = []
     pd_scanlan_classifications = []
+    error_crosslinks = []
     for x in crosslink_beads:
         #count how many effective bonds are on it
         count = 0
         for bond in gel_G.edges(x):
             if dist_pbc(frame.particles.position[bond[0]],\
                         frame.particles.position[bond[1]],\
-                        Box=frame.configuration.box[0:3]) > 0.005:
+                        Box=frame.configuration.box[0:3]) > max_ineffective_length:
                 count += 1
         if count == 0:
             ineffective_crosslinks.append(x)
@@ -1536,7 +1562,10 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
                 print(dist_pbc(frame.particles.position[bond[0]],\
                         frame.particles.position[bond[1]],\
                         Box=frame.configuration.box[0:3]))
-            exit()
+            error_crosslinks.append(x)
+            print("For now, this crosslink will be considered ineffective.")
+            ineffective_crosslinks.append(x)
+            # exit()
         elif count == 2:
             bridging_crosslinks.append(x)
         elif count >= 3:
@@ -1560,6 +1589,7 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
         else:
             pd_scanlan_classifications.append("ineffective")
 
+    print("Number of error crosslinks:", len(error_crosslinks))
     print("number of crosslinks:",len(crosslink_beads))
     print("effective crosslinks:",len(effective_crosslinks)," ",len(effective_crosslinks)/len(crosslink_beads))
     print("bridging crosslinks:",len(bridging_crosslinks)," ",len(bridging_crosslinks)/len(crosslink_beads))
