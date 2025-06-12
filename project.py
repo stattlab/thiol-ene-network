@@ -154,7 +154,7 @@ def polymerize(job):
 @MyProject.operation
 def deform(job):
     import scripts.deform
-    scripts.deform.main(job.fn('polymerize.gsd'),-1)
+    scripts.deform.main(job,job.fn('polymerize.gsd'),-1)
     print('deformed: ',job.id)
 
 @MyProject.pre(reacted)
