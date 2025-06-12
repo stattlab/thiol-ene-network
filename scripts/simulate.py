@@ -500,9 +500,9 @@ class Simulator():
         print("FIRE minimization...")
         nve = hoomd.md.methods.ConstantVolume(filter=types_to_integrate)
         fire = hoomd.md.minimize.FIRE(dt=0.005,
-                                    force_tol=1e-4,
-                                    angmom_tol=1e-4,
-                                    energy_tol=1e-9) #default values multiplied by 10**-2
+                                    force_tol=1e-5,
+                                    angmom_tol=1e-5,
+                                    energy_tol=1e-10) #default values multiplied by 10**-3
         fire.methods.append(nve)
         integrator.forces = []
         fire.forces = [harmonic]
