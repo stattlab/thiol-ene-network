@@ -94,6 +94,13 @@ def gelation_conversion_2(job):
         return job.doc['gelation_conversion_2_2'][0] >= 0.0
     except KeyError:
         return False
+
+@MyProject.label
+def crosslinking_density_calculated(job):
+    try:
+        return job.doc['crosslinking_density'] >= 0.0
+    except KeyError:
+        return False
     
 @MyProject.label
 def contract_bonds_analyzed(job):
@@ -239,9 +246,17 @@ def gelation_2_analysis(job):
 @MyProject.operation
 def contract_bonds_analysis(job):
     import scripts.network_properties
-    scripts.network_properties.contract_bonds_analysis(job.id)
+    scripts.network_properties.calculate_crosslinking_density(job.id)
     scripts.network_properties.scanlan_case_analysis_on_contract_bonds(job.id)
     print('analyzed contract bonds: ',job.id)
+
+@MyProject.pre(contract_bonds_analyzed)
+@MyProject.post(crosslinking_density_calculated)
+@MyProject.operation
+def calculate_cld(job):
+    import scripts.network_properties
+    scripts.network_properties.calculate_crosslinking_density(job.id)
+    print('calculated cld: ',job.id)
 
 @MyProject.pre(reacted and contract_bonds_analyzed)
 @MyProject.post(vv_analyzed)

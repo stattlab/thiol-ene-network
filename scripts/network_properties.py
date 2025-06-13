@@ -1334,6 +1334,25 @@ def strand_lengths_analysis(job_id):
     with open(jdir + "/crosslink_density_1.txt", "w") as f:
         f.write(str(crosslink_density))
 
+def calculate_crosslinking_density(job_id):
+    project = signac.get_project()
+    job = project.open_job(id=job_id)
+
+    polymerize_gsd = job.fn('polymerize.gsd')
+    trajectory = gsd.hoomd.open(polymerize_gsd)
+    frame = trajectory[-1]
+    box = frame.configuration.box
+    volume = box[0]*box[1]*box[2]
+
+    effective_strands = np.loadtxt(job.fn('contract_bonds_analysis/effective_strand_hist.txt'), delimiter=",")
+    total_effective = np.sum(effective_strands[:, 0])
+    cld = total_effective/volume
+    print(cld)
+    job.doc["crosslinking_density"] = cld
+
+
+
+
 def contract_bonds_analysis(job_id):
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
