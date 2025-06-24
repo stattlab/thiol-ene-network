@@ -296,7 +296,7 @@ def main(job,gsd_file_path,frame_number):
     # ------------------- Box resizer -------------------
     # Parameters taken from Brandon's previous parameter scans for NPT deformation of 
     # triblock system, except step size scaled down by a fact or 10. 1000 -> 100
-    step_size = 100
+    step_size = 1000
     delta_lam = 0.001
     # NVT deformation
     lam = 3.0
@@ -311,7 +311,7 @@ def main(job,gsd_file_path,frame_number):
                                               t_ramp=deform_time,
                                               final_lam=lam)
 
-    box_resize = hoomd.update.BoxResize(trigger=hoomd.trigger.Periodic(1),
+    box_resize = hoomd.update.BoxResize(trigger=hoomd.trigger.Periodic(step_size),
                                         box=deform_box_variant,)
     sim.operations.updaters.append(box_resize)
 

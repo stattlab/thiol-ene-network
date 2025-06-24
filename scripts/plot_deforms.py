@@ -157,18 +157,23 @@ def analyze_stress_strain(jobid):
         #3 Tensile stress https://pubs.acs.org/doi/full/10.1021/acs.macromol.0c00972
         tensile_stress.append(-1*pressure_tensors[i][0]-(pressure_tensors[i][3]+pressure_tensors[i][5])/2)
 
-    # For cases where multiple frames have the same strain, we average the stress values
-    unique_strains, indices = np.unique(strain, return_index=True)
+    # For cases where multiple frames have the same strain, we average the stress values, but only the second half
+    unique_strains, indices, counts = np.unique(strain, return_index=True, return_counts=True)
     unique_uniaxial_strains, _ = np.unique(uniaxial_strain, return_index=True)
+
+    # print(f"Found {len(unique_strains)} unique strains")
+    # print(f"indices: {indices}")
+    # print(f"Found {len(unique_uniaxial_strains)} unique uniaxial strains")
 
     unique_true_stress_straight = []
     for i in range(len(indices)-1):
-        unique_true_stress_straight.append(np.average(true_stress_straight[indices[i]:indices[i+1]]))
-    unique_true_stress_straight.append(np.average(true_stress_straight[indices[-1]:]))
+        #Calculate the index halfway through the unique strain
+        unique_true_stress_straight.append(np.average(true_stress_straight[indices[i]+counts[i]//2:indices[i+1]]))
+    unique_true_stress_straight.append(np.average(true_stress_straight[indices[-1]+counts[-1]//2:]))
     unique_tensile_stress = []
     for i in range(len(indices)-1):
-        unique_tensile_stress.append(np.average(tensile_stress[indices[i]:indices[i+1]]))
-    unique_tensile_stress.append(np.average(tensile_stress[indices[-1]:]))
+        unique_tensile_stress.append(np.average(tensile_stress[indices[i]+counts[i]//2:indices[i+1]]))
+    unique_tensile_stress.append(np.average(tensile_stress[indices[-1]+counts[i]//2:]))
 
     # window averaging
     N = 5
@@ -283,5 +288,78 @@ def main():
             with open(job.fn('youngs_modulus.txt'), "w") as f:
                 f.write(str(slope))
 '''
+
+def main(jobid):
+    project = signac.get_project()
+    job = project.open_job(id=jobid)
+    # get and trajectory and make sure the first frame checks out
+    trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
+    logs = gsd.hoomd.read_log(job.fn('pressures.gsd'))
+    pressure_tensors = logs["log/md/compute/ThermodynamicQuantities/pressure_tensor"]
+    data = np.genfromtxt(job.fn('deform.log'),skip_header=1)
+    Lx_arr = data[0:,7]
+    Lx0 = Lx_arr[0]
+
+    if len(Lx_arr) != len(pressure_tensors):
+        raise ValueError(f"Length of Lx_arr ({len(Lx_arr)}) does not match length of pressure_tensors ({len(pressure_tensors)})")
+
+    strain = []
+    uniaxial_strain = []
+    true_stress_deviatoric = []
+    true_stress_straight = []
+    tensile_stress = []
+    # iterate through each frame
+    for i,frame in enumerate(trajectory):
+        strain.append(np.log(Lx_arr[i]/Lx0))#calculate true strain
+        lam = Lx_arr[i]/Lx0
+        uniaxial_strain.append(lam**2-1/lam) # calculate uniaxial strain
+        #two ways of calculating true stress
+        #1
+        true_stress_straight.append(-1*pressure_tensors[i][0])
+        #2
+        hydrostaticPressure = np.add(pressure_tensors[i][0],np.add(pressure_tensors[i][3],pressure_tensors[i][5]))/3
+        deviatoricPressure = np.subtract(pressure_tensors[i][0],hydrostaticPressure)
+        true_stress_deviatoric.append(deviatoricPressure)
+        #3 Tensile stress https://pubs.acs.org/doi/full/10.1021/acs.macromol.0c00972
+        tensile_stress.append(-1*pressure_tensors[i][0]-(pressure_tensors[i][3]+pressure_tensors[i][5])/2)
+
+    # For cases where multiple frames have the same strain, we average the stress values
+    unique_strains, indices = np.unique(strain, return_index=True)
+    unique_uniaxial_strains, _ = np.unique(uniaxial_strain, return_index=True)
+
+    unique_true_stress_straight = []
+    for i in range(len(indices)-1):
+        unique_true_stress_straight.append(np.average(true_stress_straight[indices[i]:indices[i+1]]))
+    unique_true_stress_straight.append(np.average(true_stress_straight[indices[-1]:]))
+    unique_tensile_stress = []
+    for i in range(len(indices)-1):
+        unique_tensile_stress.append(np.average(tensile_stress[indices[i]:indices[i+1]]))
+    unique_tensile_stress.append(np.average(tensile_stress[indices[-1]:]))
+
+    # window averaging
+    N = 5
+    avg_unique_strains = np.convolve(unique_strains,np.ones(N)/N,mode='valid')
+    avg_unique_uniaxial_strains = np.convolve(unique_uniaxial_strains,np.ones(N)/N,mode='valid')
+    avg_unique_true_stress_straight = np.convolve(unique_true_stress_straight,np.ones(N)/N,mode='valid')
+    avg_unique_tensile_stress = np.convolve(unique_tensile_stress,np.ones(N)/N,mode='valid')
+
+    import matplotlib.pyplot as plt
+    plt.rcParams["font.family"] = "Avenir"
+    fig, ax = plt.subplots(1,1,sharey=False)
+    # plot the stress-strain curve
+    ax.plot(avg_unique_strains, avg_unique_true_stress_straight, linewidth=2, label='$\sigma_{xx}$')
+    ax.plot(avg_unique_uniaxial_strains, avg_unique_tensile_stress, linewidth=2, label='$\sigma_{tensile}$')
+    ax.set_xlabel('Strain')
+    ax.set_ylabel('Stress (Pa)')
+    ax.legend()
+    ax.plot_title = f'Stress-Strain Curve for Job {jobid}'
+    plt.tight_layout()
+    plt.savefig(job.fn('stress_strain_curve.png'))
+
+
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: python plot_deforms.py <jobid>")
+        sys.exit(1)
+    jobid = sys.argv[1]
+    main(jobid)
