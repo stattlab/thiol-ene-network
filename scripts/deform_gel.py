@@ -265,7 +265,7 @@ def isolate_gel(job,input_gsd,frame_number):
 
     traj = gsd.hoomd.open(input_gsd, mode='r')
     in_frame = traj[int(frame_number)]
-    bonds = in_frame.bonds.groups
+    bonds = in_frame.bonds.group
 
     G = nx.Graph()
     G.add_edges_from(bonds)
@@ -274,64 +274,10 @@ def isolate_gel(job,input_gsd,frame_number):
     Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
     # get the largest connected component
     gel_graph = Gcc[0]
-    gel_nodes = list(gel_graph.nodes)
-
-    #mask the particles to only include the gel particles
-    gel_mask = np.zeros(len(in_frame.particles.position), dtype=bool)
-    for i in gel_nodes:
-        gel_mask[i] = True
-
-    out_frame = gsd.hoomd.Snapshot()
-    out_frame.particles.types = in_frame.particles.types
-    out_frame.particles.position = in_frame.particles.position[gel_mask]
-    out_frame.particles.orientation = in_frame.particles.orientation[gel_mask]
-    out_frame.particles.typeid = in_frame.particles.typeid[gel_mask]
-    out_frame.particles.mass = in_frame.particles.mass[gel_mask]
-    out_frame.particles.charge = in_frame.particles.charge[gel_mask]
-    out_frame.particles.diameter = in_frame.particles.diameter[gel_mask]
-    out_frame.particles.body = in_frame.particles.body[gel_mask]
-    out_frame.particles.moment_inertia = in_frame.particles.moment_inertia[gel_mask]
-    out_frame.particles.velocity = in_frame.particles.velocity[gel_mask]
-    out_frame.particles.angular_momentum = in_frame.particles.angular_momentum[gel_mask]
-    out_frame.particles.image = in_frame.particles.image[gel_mask]
-    out_frame.particles.N = len(out_frame.particles.position)
-
-    out_frame.bonds.types = in_frame.bonds.types
-    out_frame.bonds.groups = []
-    out_frame.bonds.typeid = []
-    out_frame.bonds.N = 0
-    for i in range(in_frame.bonds.N):
-        if gel_mask[in_frame.bonds.groups[i][0]] and gel_mask[in_frame.bonds.groups[i][1]]:
-            out_frame.bonds.groups.append(in_frame.bonds.groups[i])
-            out_frame.bonds.typeid.append(in_frame.bonds.typeid[i])
-            out_frame.bonds.N += 1
-    out_frame.bonds.groups = np.array(out_frame.bonds.groups, dtype=np.int32)
-    out_frame.bonds.typeid = np.array(out_frame.bonds.typeid, dtype=np.int32)
-
-    out_frame.angles.types = in_frame.angles.types
-    out_frame.angles.groups = []
-    out_frame.angles.typeid = []
-    out_frame.angles.N = 0
-    for i in range(in_frame.angles.N):
-        if (gel_mask[in_frame.angles.groups[i][0]] and 
-            gel_mask[in_frame.angles.groups[i][1]] and 
-            gel_mask[in_frame.angles.groups[i][2]]):
-            out_frame.angles.groups.append(in_frame.angles.groups[i])
-            out_frame.angles.typeid.append(in_frame.angles.typeid[i])
-            out_frame.angles.N += 1
-    out_frame.angles.groups = np.array(out_frame.angles.groups, dtype=np.int32)
-    out_frame.angles.typeid = np.array(out_frame.angles.typeid, dtype=np.int32)
-
-    #no dihedrals or impropers in the input gsd file
-    out_frame.configuration.step = in_frame.configuration.step
-    out_frame.configuration.dimensions = in_frame.configuration.dimensions
-    out_frame.configuration.box = in_frame.configuration.box
+    gel_nodes = list(gel_graph)
+    print(f"Isolated {len(gel_nodes)} gel particles from {len(in_frame.particles.position)} total particles.")
     
-    # Save the new snapshot to a gsd file
-    gsd.hoomd.open(output_gsd, mode='w').append(out_frame)
-
-    print(f"Isolated gel saved to {output_gsd}")
-    return output_gsd
+    return gel_nodes
 
 
 def main(job,gsd_file_path,frame_number):
@@ -350,7 +296,7 @@ def main(job,gsd_file_path,frame_number):
     parent_path = str(Path(gsd_file_path).parent.absolute())
 
     # Isolate the gel from the input gsd file
-    gel_gsd = isolate_gel(job,gsd_file_path,frame_number)
+    gel_nodes = isolate_gel(job,gsd_file_path,frame_number)
 
     try:
         device = hoomd.device.GPU()
@@ -359,21 +305,21 @@ def main(job,gsd_file_path,frame_number):
 
     if feneOnly_deformation:
         print("No pair deformation, using FENEWCA only")
-        # run_feneOnly_equilibration(job,gel_gsd, frame_number)
+        # run_feneOnly_equilibration(job,gsd_file_path, frame_number)
         # sim = hoomd.Simulation(device=device, seed=1)
         # sim.create_state_from_gsd(filename=parent_path + '/equi_feneOnly.gsd', frame=-1)
         sim = hoomd.Simulation(device=device, seed=1)
-        sim.create_state_from_gsd(filename=gel_gsd, frame=int(frame_number))
+        sim.create_state_from_gsd(filename=gsd_file_path, frame=int(frame_number))
     else:
         if WCA_deformation:
-            run_equilibration(job,gel_gsd, frame_number)
+            run_equilibration(job,gsd_file_path, frame_number)
             sim = hoomd.Simulation(device=device, seed=1)
             sim.create_state_from_gsd(filename=parent_path + '/equi_WCA.gsd', frame=-1)
         else:
             print("Using existing gsd file for deformation")
             # If not WCA deformation, just read the gsd file directly
             sim = hoomd.Simulation(device=device, seed=1)
-            sim.create_state_from_gsd(filename=gel_gsd, frame=int(frame_number))
+            sim.create_state_from_gsd(filename=gsd_file_path, frame=int(frame_number))
 
     # ------------------- Box resizer -------------------
     # Parameters taken from Brandon's previous parameter scans for NPT deformation of 
@@ -383,7 +329,7 @@ def main(job,gsd_file_path,frame_number):
     # NVT deformation
     lam = 3.0
     deform_time = (lam - 1) / delta_lam * step_size
-    traj = gsd.hoomd.open(gel_gsd,mode='r')
+    traj = gsd.hoomd.open(gsd_file_path,mode='r')
     initial_box = traj[-1].configuration.box
     initial_box = np.asarray(initial_box)
     # initial_box = np.asarray(sim.state.box)
@@ -434,7 +380,8 @@ def main(job,gsd_file_path,frame_number):
     # print(f"Could read, but assuming temperature = {kT}")
     kT = job.sp['temperature']
     dt = 0.005 # Also taken from Brandon's deformation parameter scan
-    types_to_integrate =  hoomd.filter.Type(sim.state.particle_types[:-1]) # everything but "Dummy" particles
+    # types_to_integrate =  hoomd.filter.Type(sim.state.particle_types[:-1]) # everything but "Dummy" particles
+    types_to_integrate = hoomd.filter.Tags(gel_nodes) # filter for the gel particles
 
     integrator = hoomd.md.Integrator(dt=dt)
     
