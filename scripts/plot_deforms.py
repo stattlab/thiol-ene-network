@@ -97,7 +97,7 @@ def make_plotly_fig(xaxis="", xaxis_range=None, yaxis="", yaxis_range=None):
 def analyze_modulus(jobid):
     project = signac.get_project()
     job = project.open_job(id=jobid)
-    data = np.genfromtxt(job.fn('stress_strain.txt'))
+    data = np.genfromtxt(job.fn('stress_strain_gel.txt'))
     strain = data[:,0]
     stress = data[:,1]
     uniaxial_strain = data[:,2]
@@ -118,7 +118,7 @@ def analyze_modulus(jobid):
     # save the Young's modulus
     # with open(job.fn('youngs_modulus.txt'), "w") as f:
     #     f.write(str(slope))
-    with open(job.fn('youngs_modulus.txt'), "w") as f:
+    with open(job.fn('youngs_modulus_gel.txt'), "w") as f:
         f.write(f"{3*slope_tensile}")
     print(f"Young's modulus with straight stress: {slope}")
     print(f"Young's modulus with tensile stress: {3*slope_tensile} \n based on https://pubs.acs.org/doi/full/10.1021/acs.macromol.0c00972")
@@ -127,10 +127,10 @@ def analyze_stress_strain(jobid):
     project = signac.get_project()
     job = project.open_job(id=jobid)
     # get and trajectory and make sure the first frame checks out
-    trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
-    logs = gsd.hoomd.read_log(job.fn('pressures.gsd'))
+    trajectory = gsd.hoomd.open(job.fn('pressures_gel.gsd'))
+    logs = gsd.hoomd.read_log(job.fn('pressures_gel.gsd'))
     pressure_tensors = logs["log/md/compute/ThermodynamicQuantities/pressure_tensor"]
-    data = np.genfromtxt(job.fn('deform.log'),skip_header=1)
+    data = np.genfromtxt(job.fn('deform_gel.log'),skip_header=1)
     Lx_arr = data[0:,7]
     Lx0 = Lx_arr[0]
 
@@ -183,7 +183,7 @@ def analyze_stress_strain(jobid):
     avg_unique_tensile_stress = np.convolve(unique_tensile_stress,np.ones(N)/N,mode='valid')
 
     # Save the stress-strain curve
-    with open(job.fn('stress_strain.txt'), "w") as f:
+    with open(job.fn('stress_strain_gel.txt'), "w") as f:
         for i in range(len(avg_unique_strains)):
             f.write(f"{avg_unique_strains[i]}\t{avg_unique_true_stress_straight[i]}\t{avg_unique_uniaxial_strains[i]}\t{avg_unique_tensile_stress[i]}\n")
 
@@ -293,10 +293,10 @@ def main(jobid):
     project = signac.get_project()
     job = project.open_job(id=jobid)
     # get and trajectory and make sure the first frame checks out
-    trajectory = gsd.hoomd.open(job.fn('pressures.gsd'))
-    logs = gsd.hoomd.read_log(job.fn('pressures.gsd'))
+    trajectory = gsd.hoomd.open(job.fn('pressures_gel.gsd'))
+    logs = gsd.hoomd.read_log(job.fn('pressures_gel.gsd'))
     pressure_tensors = logs["log/md/compute/ThermodynamicQuantities/pressure_tensor"]
-    data = np.genfromtxt(job.fn('deform.log'),skip_header=1)
+    data = np.genfromtxt(job.fn('deform_gel.log'),skip_header=1)
     Lx_arr = data[0:,7]
     Lx0 = Lx_arr[0]
 
@@ -354,7 +354,7 @@ def main(jobid):
     ax.legend()
     ax.plot_title = f'Stress-Strain Curve for Job {jobid}'
     plt.tight_layout()
-    plt.savefig(job.fn('stress_strain_curve.png'))
+    plt.savefig(job.fn('stress_strain_curve_gel.png'))
 
 
 if __name__ == '__main__':

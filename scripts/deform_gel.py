@@ -422,7 +422,7 @@ def main(job,gsd_file_path,frame_number):
     sim.run(100000,write_at_start=True)
     print("Thermalization done! Starting deformation...")
 
-    log_writer = hoomd.write.Table(output=open(parent_path + '/deform.log','w'),
+    log_writer = hoomd.write.Table(output=open(parent_path + '/deform_gel.log','w'),
                                     trigger=hoomd.trigger.Periodic(10),
                                     logger=logger,)
     sim.operations.writers.append(log_writer)
@@ -430,7 +430,7 @@ def main(job,gsd_file_path,frame_number):
     # add logging for pressure tensor and gsd file output
     logger = hoomd.logging.Logger(categories=['sequence'])
     logger.add(thermo, ['pressure_tensor'])
-    gsd_writer = hoomd.write.GSD(filename=parent_path + '/deform.gsd',
+    gsd_writer = hoomd.write.GSD(filename=parent_path + '/deform_gel.gsd',
                                     # trigger=hoomd.trigger.Periodic(int(5)),
                                     trigger=hoomd.trigger.Periodic(int(deform_time/4/10)),
                                     dynamic=['property','momentum','topology','attribute'],
@@ -441,7 +441,7 @@ def main(job,gsd_file_path,frame_number):
     #add pressure to a new gsd writer
     logger_pressure = hoomd.logging.Logger(categories = ['scalar','sequence'])
     logger_pressure.add(thermo, ['pressure_tensor'])
-    gsd_writer_pressure = hoomd.write.GSD(filename=parent_path+"/pressures.gsd",
+    gsd_writer_pressure = hoomd.write.GSD(filename=parent_path+"/pressures_gel.gsd",
                                           filter = hoomd.filter.Null(),
                                           mode = "wb", 
                                           trigger=hoomd.trigger.Periodic(10),
@@ -453,11 +453,11 @@ def main(job,gsd_file_path,frame_number):
     # sim.run(deform_time+1)
 
 
-    print("Deformation done! Written gsd file to: ",parent_path + "/deform.gsd")
+    print("Deformation done! Written gsd file to: ",parent_path + "/deform_gel.gsd")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python3 deform.py gsd_file_path frame_number")
+        print("Usage: python3 deform_gel.py gsd_file_path frame_number")
         sys.exit(1)
     main(str(sys.argv[1]), str(sys.argv[2]))

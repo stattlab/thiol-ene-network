@@ -44,6 +44,10 @@ def reacting(job):
 @MyProject.label
 def deformed(job):
     return job.isfile("deform.gsd") and os.path.getsize(job.fn('deform.log')) > 100
+
+@MyProject.label
+def deformed_gel(job):
+    return job.isfile("deform_gel.gsd") and os.path.getsize(job.fn('deform_gel.log')) > 100
     
 @MyProject.label
 def contracted_bonds(job):
@@ -85,8 +89,17 @@ def stress_strain_analyzed(job):
     return job.isfile('stress_strain.txt')
 
 @MyProject.label
+def stress_strain_gel_analyzed(job):
+    return job.isfile('stress_strain_gel.txt')
+
+
+@MyProject.label
 def modulus_analyzed(job):
     return job.isfile('youngs_modulus.txt')
+
+@MyProject.label
+def modulus_gel_analyzed(job):
+    return job.isfile('youngs_modulus_gel.txt')
 
 @MyProject.label
 def gelation_conversion_2(job):
@@ -165,6 +178,14 @@ def deform(job):
     print('deformed: ',job.id)
 
 @MyProject.pre(reacted)
+@MyProject.post(deformed_gel)
+@MyProject.operation
+def deform_gel(job):
+    import scripts.deform_gel;
+    scripts.deform_gel.main(job,job.fn('polymerize.gsd'),-1)
+    print('deformed gel: ',job.id)
+
+@MyProject.pre(reacted)
 @MyProject.post(contracted_bonds)
 @MyProject.operation
 def contract_bonds(job):
@@ -225,10 +246,27 @@ def deformation_analysis(job):
     scripts.plot_deforms.analyze_stress_strain(job.id)
     print('analyzed stress-strain: ',job.id)
 
+@MyProject.pre(deformed_gel)
+@MyProject.post(stress_strain_gel_analyzed)
+@MyProject.operation
+def deformation_gel_analysis(job):
+    import scripts.plot_deforms
+    scripts.plot_deforms.analyze_stress_strain(job.id)
+    print('analyzed stress-strain: ',job.id)
+    
+
 @MyProject.pre(stress_strain_analyzed)
 @MyProject.post(modulus_analyzed)
 @MyProject.operation
 def modulus_analysis(job):
+    import scripts.plot_deforms
+    scripts.plot_deforms.analyze_modulus(job.id)
+    print('analyzed modulus: ',job.id)
+
+@MyProject.pre(stress_strain_gel_analyzed)
+@MyProject.post(modulus_gel_analyzed)
+@MyProject.operation
+def modulus_gel_analysis(job):
     import scripts.plot_deforms
     scripts.plot_deforms.analyze_modulus(job.id)
     print('analyzed modulus: ',job.id)
