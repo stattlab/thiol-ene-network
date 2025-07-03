@@ -155,7 +155,7 @@ def analyze_stress_strain(jobid):
         deviatoricPressure = np.subtract(pressure_tensors[i][0],hydrostaticPressure)
         true_stress_deviatoric.append(deviatoricPressure)
         #3 Tensile stress https://pubs.acs.org/doi/full/10.1021/acs.macromol.0c00972
-        tensile_stress.append(-1*pressure_tensors[i][0]-(pressure_tensors[i][3]+pressure_tensors[i][5])/2)
+        tensile_stress.append(-1*(pressure_tensors[i][0]-(pressure_tensors[i][3]+pressure_tensors[i][5])/2))
 
     # For cases where multiple frames have the same strain, we average the stress values, but only the second half
     unique_strains, indices, counts = np.unique(strain, return_index=True, return_counts=True)
