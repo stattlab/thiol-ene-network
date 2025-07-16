@@ -53,6 +53,19 @@ def deformed_gel(job):
 def contracted_bonds(job):
     return job.isfile("contract_bonds.gsd")
 
+@MyProject.label
+def diffused(job):
+    """
+    Only two jobs need to run this operation
+    """
+    if job.sp['chain_side_reaction_probability'] == 0 and \
+            job.sp['crosslinker_percent'] == 75 and \
+            job.sp['replica_index'] == 0:
+        # only two jobs need to run, one for each angle constant
+        return job.isfile("diffuse.gsd")
+    else:
+        return True
+
 #-----------------------
 # Analysis labels
 #-----------------------
@@ -132,7 +145,17 @@ def vv_analyzed(job):
             job.isfile('contract_bonds_analysis/voronoi_volumes_thiol.txt') and \
             job.isfile('contract_bonds_analysis/voronoi_volumes_ene.txt')
 
-
+@MyProject.label
+def diffusion_coeff_analyzed(job):
+    """
+    Only two jobs need to run this operation
+    """
+    if job.sp['chain_side_reaction_probability'] == 0 and \
+            job.sp['crosslinker_percent'] == 0 and \
+            job.sp['replica_index'] == 0:
+        return job.isfile('diffusion_coeff.txt')
+    else:
+        return True
 
 #-----------------------
 # Simulation operations
@@ -193,6 +216,15 @@ def contract_bonds(job):
     sinit = Simulator(job)
     sinit.contract_bonds()
     print("contracted bonds: ",job.id)
+
+@MyProject.pre(equilibrated)
+@MyProject.post(diffused)
+@MyProject.operation
+def diffuse(job):
+    from scripts.simulate import Simulator
+    sinit = Simulator(job)
+    sinit.diffuse()
+    print("diffused: ",job.id)
 
 #-----------------------
 # Analysis operations
@@ -303,6 +335,20 @@ def vv_analysis(job):
     import scripts.network_properties
     scripts.network_properties.crosslinker_heterogeneity_by_VV(job.id)
     print('analyzed voronoi volumes of job: ',job.id)
+
+@MyProject.pre(diffused)
+@MyProject.post(diffusion_coeff_analyzed)
+@MyProject.operation
+def diffusion_coeff_analysis(job):
+    from scripts.diffusion_coeff import DiffusionAnalyzer
+    analyzer = DiffusionAnalyzer(job, dt=0.005)
+    if not job.isfile('MSD.txt'):
+        print('MSD.txt does not exist, calculating MSD')
+        analyzer.calculate_MSD()
+    else:
+        print('MSD.txt already exists, skipping MSD calculation')
+    analyzer.calculate_diffusion_coeff()
+    print('analyzed diffusion coeff: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()

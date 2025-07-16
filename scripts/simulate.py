@@ -51,6 +51,8 @@ class Simulator():
         self.output_run_txt =job.fn('run.txt')
         self.run_gsd_file = job.fn('run.gsd')
         self.contract_bonds_gsd_file = job.fn('contract_bonds.gsd')
+        self.diffuse_gsd_file = job.fn('diffuse.gsd')
+        self.diffuse_output_txt = job.fn('diffuse.txt')
 
         if "custom_action" in self.job.sp["polymerization_method"]:
             import scripts.customAction.polymerize as polymerize
@@ -531,6 +533,93 @@ class Simulator():
 
         hoomd.write.GSD.write(state=sim.state, mode='wb', filename=self.contract_bonds_gsd_file)
         print("writing gsd file to:",self.contract_bonds_gsd_file)
+
+    def diffuse(self):
+        S = System()
+
+        try:
+            device = hoomd.device.GPU(notice_level=5)
+        except:
+            device = hoomd.device.CPU(notice_level=5)
+
+        print(f"job_id: {self.job.id}",self.job.sp["polymerization_method"]," is being run on ",device)
+
+        sim = hoomd.Simulation(device=device, seed=1)
+
+        sim.create_state_from_gsd(filename=self.equi_gsd_file)
+        
+        if len(sim.state.angle_types)==0:
+            FJ_system=True
+        else:
+            FJ_system=False
+
+        integrator = hoomd.md.Integrator(dt=0.005)
+        sim.operations.integrator = integrator 
+
+        cell = hoomd.md.nlist.Cell(buffer=0.4)
+
+        lj = hoomd.md.pair.LJ(nlist=cell)
+        lj.params[(S.particles_types, S.particles_types)] = dict(epsilon=1.0,sigma=1.0)
+        lj.r_cut[S.particles_types, S.particles_types] = 2.5
+
+        lj.params[(S.particles_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
+        lj.r_cut[S.particles_types, 'Dummy'] = 0
+        lj.mode = 'shift'
+
+        fene = hoomd.md.bond.FENEWCA()
+        fene.params[S.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
+        fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
+
+        if FJ_system==False:
+            cosinesq = hoomd.md.angle.CosineSquared()
+            cosinesq.params[S.angle_types] = dict(k=self.angle_constant,    t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
+            cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
+
+            integrator.forces = [lj,fene,cosinesq]
+        else:
+            integrator.forces = [lj,fene]
+
+        types_to_integrate =  hoomd.filter.Type(S.particles_types[:-1])
+       
+        # npt = hoomd.md.methods.ConstantPressure(
+        #     filter=types_to_integrate,
+        #     tauS=1000*sim.operations.integrator.dt,
+        #     gamma=2/(1000*sim.operations.integrator.dt),
+        #     S=0.0,
+        #     couple="xyz",
+        #     rescale_all=True,
+        #     thermostat=hoomd.md.methods.thermostats.MTTK(kT=self.kT,tau=sim.operations.integrator.dt*100))
+        
+        nvt = hoomd.md.methods.ConstantVolume(
+                filter=types_to_integrate,
+                thermostat=hoomd.md.methods.thermostats.MTTK(kT=self.kT,tau=sim.operations.integrator.dt*100))
+        sim.operations.integrator.methods.append(nvt)
+
+        # Define and add the GSD operation.
+        gsd_writer = hoomd.write.GSD(filename=self.diffuse_gsd_file,
+                                    trigger=hoomd.trigger.Periodic(self.polymerize_period),
+                                    dynamic=['property','momentum','topology','attribute'],
+                                    mode='ab')
+        sim.operations.writers.append(gsd_writer)
+        print("writing gsd file to:",self.diffuse_gsd_file)
+        
+        thermodynamic_properties = hoomd.md.compute.ThermodynamicQuantities(filter=types_to_integrate)
+        sim.operations.computes.append(thermodynamic_properties)
+       
+        status = Status(sim)
+        logger = hoomd.logging.Logger(categories=['scalar','string'])
+       
+        logger.add(sim, quantities=['timestep','tps'])
+        logger.add(thermodynamic_properties, quantities=['kinetic_temperature','pressure','kinetic_energy','potential_energy','volume'])
+
+        table_stdout = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger)
+        table_file = hoomd.write.Table(trigger=hoomd.trigger.Periodic(self.polymerize_period,100),logger=logger, output=open(self.diffuse_output_txt,'a'))
+        sim.operations.writers.append(table_stdout)
+        sim.operations.writers.append(table_file)
+
+        sim.state.thermalize_particle_momenta(filter=types_to_integrate, kT=self.kT)
+
+        sim.run(int(10000*self.polymerize_period),write_at_start=True)
 
     # def run(self):
 
