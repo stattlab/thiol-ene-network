@@ -146,14 +146,14 @@ def vv_analyzed(job):
             job.isfile('contract_bonds_analysis/voronoi_volumes_ene.txt')
 
 @MyProject.label
-def diffusion_coeff_analyzed(job):
+def diffusion_analyzed(job):
     """
     Only two jobs need to run this operation
     """
     if job.sp['chain_side_reaction_probability'] == 0 and \
-            job.sp['crosslinker_percent'] == 0 and \
+            job.sp['crosslinker_percent'] == 75 and \
             job.sp['replica_index'] == 0:
-        return job.isfile('diffusion_coeff.txt')
+        return job.isfile(f'diffusion_length_at_delta_timesteps_{job.sp["polymerize_period"]}.txt')
     else:
         return True
 
@@ -337,18 +337,19 @@ def vv_analysis(job):
     print('analyzed voronoi volumes of job: ',job.id)
 
 @MyProject.pre(diffused)
-@MyProject.post(diffusion_coeff_analyzed)
+@MyProject.post(diffusion_analyzed)
 @MyProject.operation
-def diffusion_coeff_analysis(job):
-    from scripts.diffusion_coeff import DiffusionAnalyzer
+def diffusion_analysis(job):
+    from scripts.diffusion import DiffusionAnalyzer
     analyzer = DiffusionAnalyzer(job, dt=0.005)
-    if not job.isfile('MSD.txt'):
-        print('MSD.txt does not exist, calculating MSD')
-        analyzer.calculate_MSD()
-    else:
-        print('MSD.txt already exists, skipping MSD calculation')
-    analyzer.calculate_diffusion_coeff()
-    print('analyzed diffusion coeff: ',job.id)
+    # if not job.isfile('MSD.txt'):
+    #     print('MSD.txt does not exist, calculating MSD')
+    #     analyzer.calculate_MSD()
+    # else:
+    #     print('MSD.txt already exists, skipping MSD calculation')
+    # analyzer.calculate_diffusion_coeff()
+    analyzer.calculate_diffusion_length_at_delta_timestep(timesteps=job.sp['polymerize_period'])
+    print('analyzed diffusion: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()
