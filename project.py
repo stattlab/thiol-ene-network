@@ -59,7 +59,7 @@ def diffused(job):
     Only two jobs need to run this operation
     """
     if job.sp['chain_side_reaction_probability'] == 0 and \
-            job.sp['crosslinker_percent'] == 75 and \
+            job.sp['crosslinker_percent'] == 50 and \
             job.sp['replica_index'] == 0:
         # only two jobs need to run, one for each angle constant
         return job.isfile("diffuse.gsd")
