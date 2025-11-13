@@ -29,21 +29,26 @@ def main():
         "replica_index": [0,1,2,3,4],
         "density": [0.81],
         "temperature":[1],
-        "crosslinker_percent":[12.5,100],#[0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100],
+        "crosslinker_percent":[50],#[0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100],
         "N_monomers":[10000],
         "monomer_size":[0],
         "extender_size":[0],
         "radical_percent":[1.0],
-        "chain_side_reaction_probability": [0.15],#0.0,0.5,0.6,0.9],
+        "chain_side_reaction_probability": [0.0,0.15],#0.0,0.5,0.6,0.9],
         "chain_transfer_probability": [0.1],
         "thiol_reaction_probability": [1],
-        "polymerize_period": [100],#,1,1000000000],
+        "polymerize_period": [50,500],#100
         "r_cut_reaction":[1.1],
-        "angle_constant":[10],
+        "angle_constant":[100],#[10,100],
         "polymerization_method":["cpu_local_snapshot"],
         }
 
     for sp in grid(statepoint_grid):
+        # check if the sp is for one of the non-standard polymerization periods. If so, limit the other statepoints
+        if sp.get("polymerize_period") != 100:
+            if sp.get("replica_index") != 0 or sp.get("crosslinker_percent") != 50 or sp.get("angle_constant") != 100:
+                continue
+
         # open the job and initialize
         job = project.open_job(sp).init()
         if job.sp['monomer_size']>0 and job.sp['extender_size']>0:
@@ -91,6 +96,8 @@ def main():
             job.doc['integration_tps'] = 0
 
         print(f"initializing state point with id {job.id}, N_extenders {N_extenders}, N_crosslinkers {N_crosslinker}, N_monomers {job.sp['N_monomers']}")
+
+
 
 
 if __name__ == "__main__":

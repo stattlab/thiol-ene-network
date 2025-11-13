@@ -1344,6 +1344,10 @@ def calculate_crosslinking_density(job_id):
     box = frame.configuration.box
     volume = box[0]*box[1]*box[2]
 
+    direc = project.fn('') + 'workspace/'
+    jdir = direc + job_id
+    if not os.path.exists(jdir + "/contract_bonds_analysis"):
+        os.mkdir(jdir + "/contract_bonds_analysis")
     effective_strands = np.loadtxt(job.fn('contract_bonds_analysis/effective_strand_hist.txt'), delimiter=",")
     total_effective = np.sum(effective_strands[:, 0])
     cld = total_effective/volume

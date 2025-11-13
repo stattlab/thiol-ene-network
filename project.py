@@ -97,9 +97,9 @@ def xlink_rdf_analyzed(job):
         three = True
     return one and two and three
 
-@MyProject.label
-def stress_strain_analyzed(job):
-    return job.isfile('stress_strain.txt')
+# @MyProject.label
+# def stress_strain_analyzed(job):
+#     return job.isfile('stress_strain.txt')
 
 @MyProject.label
 def stress_strain_gel_analyzed(job):
@@ -270,13 +270,13 @@ def strand_analysis(job):
     print('analyzed strands: ',job.id)
 
 
-@MyProject.pre(deformed)
-@MyProject.post(stress_strain_analyzed)
-@MyProject.operation
-def deformation_analysis(job):
-    import scripts.plot_deforms
-    scripts.plot_deforms.analyze_stress_strain(job.id)
-    print('analyzed stress-strain: ',job.id)
+# @MyProject.pre(deformed)
+# @MyProject.post(stress_strain_analyzed)
+# @MyProject.operation
+# def deformation_analysis(job):
+#     import scripts.plot_deforms
+#     scripts.plot_deforms.analyze_stress_strain(job.id)
+#     print('analyzed stress-strain: ',job.id)
 
 @MyProject.pre(deformed_gel)
 @MyProject.post(stress_strain_gel_analyzed)
@@ -287,13 +287,13 @@ def deformation_gel_analysis(job):
     print('analyzed stress-strain: ',job.id)
     
 
-@MyProject.pre(stress_strain_analyzed)
-@MyProject.post(modulus_analyzed)
-@MyProject.operation
-def modulus_analysis(job):
-    import scripts.plot_deforms
-    scripts.plot_deforms.analyze_modulus(job.id)
-    print('analyzed modulus: ',job.id)
+# @MyProject.pre(stress_strain_analyzed)
+# @MyProject.post(modulus_analyzed)
+# @MyProject.operation
+# def modulus_analysis(job):
+#     import scripts.plot_deforms
+#     scripts.plot_deforms.analyze_modulus(job.id)
+#     print('analyzed modulus: ',job.id)
 
 @MyProject.pre(stress_strain_gel_analyzed)
 @MyProject.post(modulus_gel_analyzed)
@@ -316,7 +316,8 @@ def gelation_2_analysis(job):
 @MyProject.operation
 def contract_bonds_analysis(job):
     import scripts.network_properties
-    scripts.network_properties.calculate_crosslinking_density(job.id)
+    # scripts.network_properties.calculate_crosslinking_density(job.id)
+    scripts.network_properties.contract_bonds_analysis(job.id)
     scripts.network_properties.scanlan_case_analysis_on_contract_bonds(job.id)
     print('analyzed contract bonds: ',job.id)
 
