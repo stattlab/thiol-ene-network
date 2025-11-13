@@ -189,5 +189,17 @@ def calculate_mw(job_id):
     else:
         print("no conversion file")
 
-
-
+def get_frame_at_95_conversion(job_id):
+    # find workspace directory
+    direc = project.fn('') + "workspace/"
+    jdir = direc + job_id
+    trajectory_conversion_txt = jdir + "/trajectory_conversion.txt"
+    if not os.path.isfile(trajectory_conversion_txt):
+        return "oops no conversion file"
+    
+    data = np.loadtxt(trajectory_conversion_txt, delimiter=' ', skiprows=1)
+    # find the frame where conversion is just above 0.95, starting from the end
+    for i in np.arange(start=-1, stop=-len(data)-1, step=-1):
+        if data[i, 1] <= 0.95:
+            return i + 1 + len(data)
+    return False
