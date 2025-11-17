@@ -429,6 +429,10 @@ def calculate_percolation_cld(job):
 def conv95_defect_analyzed(job):
     return job.isfile("loop_counts_conversion95.txt")
 
+@MyProject.label
+def conv95_strands_analyzed(job):
+    return job.isfile("conv95_strand_sizes.txt")
+
 @MyProject.pre(reacted)
 @MyProject.post(conv95_defect_analyzed)
 @MyProject.operation
@@ -436,6 +440,14 @@ def conv95_defect_analysis(job):
     import scripts.network_properties
     scripts.network_properties.defect_analysis(job.id, defect_frame=95)
     print('analyzed defectivity: ',job.id)
+
+@MyProject.pre(reacted)
+@MyProject.post(conv95_strands_analyzed)
+@MyProject.operation
+def conv95_strand_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.strand_lengths_analysis(job.id, defect_frame=95)
+    print('analyzed strands: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()

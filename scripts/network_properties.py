@@ -1281,7 +1281,7 @@ def xlink_rdf_analysis(job_id):
     # save the rdf data into txts
 
 
-def strand_lengths_analysis(job_id):
+def strand_lengths_analysis(job_id, defect_frame = -1):
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
@@ -1293,8 +1293,11 @@ def strand_lengths_analysis(job_id):
         exit()
     # open the polymerized gsd file's trajectory (list of frames)
     trajectory = gsd.hoomd.open(input_file)
-
-    frame = trajectory[-1]
+    if defect_frame != -1:
+        from scripts.conversion import get_frame_at_95_conversion
+        defect_frame = int(get_frame_at_95_conversion(job_id))
+        print(defect_frame)
+    frame = trajectory[defect_frame]
     dummy_id = len(frame.bonds.types)-1
     bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
     # make a graph - each bond is an edge
@@ -1338,15 +1341,20 @@ def strand_lengths_analysis(job_id):
 
     strand_count = list(zip(sizes_of_strands,count))
     print(strand_count)
-    with open(jdir + "/strand_sizes.txt", "w") as f:
+    if defect_frame == -1:
+        file = "/strand_sizes.txt"
+    else:
+        file = "/conv95_strand_sizes.txt"
+    with open(jdir + file, "w") as f:
         f.write("strand_size count\n")
         for x in strand_count:
             line = str(x[0]) + " " + str(x[1]) + "\n"
             f.write(line)
     
+    '''
     crosslink_density = len(crosslink_beads)/sum([i[0]*i[1] for i in strand_count])
     with open(jdir + "/crosslink_density_1.txt", "w") as f:
-        f.write(str(crosslink_density))
+        f.write(str(crosslink_density))'''
 
 def calculate_crosslinking_density(job_id, frame = -1):
     project = signac.get_project()
