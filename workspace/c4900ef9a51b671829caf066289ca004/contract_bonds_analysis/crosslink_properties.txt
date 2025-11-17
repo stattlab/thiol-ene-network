@@ -455,7 +455,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 2629	Tetra-S	2	bridging
 2634	Tetra-S	0	ineffective
 2639	Tetra-S	0	ineffective
-2644	Tetra-S	0	ineffective
+2644	Tetra-S	2	bridging
 2649	Tetra-S	2	bridging
 2654	Tetra-S	0	ineffective
 2659	Tetra-S	2	bridging
@@ -4807,7 +4807,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 26514	Carbon	3	effective
 26517	Carbon	3	effective
 26518	Carbon	3	effective
-26526	Carbon	2	bridging
+26526	Carbon	3	effective
 26529	Carbon	3	effective
 26533	Carbon	3	effective
 26534	Carbon	3	effective
@@ -5534,7 +5534,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 29714	Carbon	3	effective
 29717	Carbon	3	effective
 29718	Carbon	3	effective
-29725	Carbon	2	bridging
+29725	Carbon	3	effective
 29734	Carbon	3	effective
 29738	Carbon	3	effective
 29745	Carbon	2	bridging
@@ -6535,7 +6535,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 34110	Carbon	3	effective
 34129	Carbon	3	effective
 34133	Carbon	3	effective
-34134	Carbon	2	bridging
+34134	Carbon	3	effective
 34138	Carbon	3	effective
 34141	Carbon	3	effective
 34145	Carbon	2	bridging
@@ -10638,8 +10638,8 @@ crosslink_id	type	effective_functionality	scanlan_classification
 52834	Carbon	3	effective
 52838	Carbon	3	effective
 52842	Carbon	3	effective
-52849	Carbon	2	bridging
-52850	Carbon	2	bridging
+52849	Carbon	3	effective
+52850	Carbon	3	effective
 52854	Carbon	3	effective
 52865	Carbon	3	effective
 52866	Carbon	2	bridging
@@ -11704,7 +11704,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 57670	Carbon	3	effective
 57673	Carbon	3	effective
 57677	Carbon	2	bridging
-57681	Carbon	2	bridging
+57681	Carbon	3	effective
 57682	Carbon	3	effective
 57689	Carbon	2	bridging
 57697	Carbon	3	effective
@@ -12650,7 +12650,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 61834	Carbon	3	effective
 61837	Carbon	3	effective
 61842	Carbon	0	ineffective
-61850	Carbon	0	ineffective
+61850	Carbon	2	bridging
 61854	Carbon	2	bridging
 61862	Carbon	3	effective
 61865	Carbon	0	ineffective

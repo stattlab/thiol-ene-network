@@ -727,7 +727,7 @@ def get_length_categorized_loops(primary_edges,secondary_edges,tertiary_edges,qu
 
 #Dangling end lengths do not include the beads within the gel
 #
-def defect_analysis(job_id,testing=False):
+def defect_analysis(job_id,testing=False, defect_frame = -1):
     
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
@@ -741,7 +741,14 @@ def defect_analysis(job_id,testing=False):
     # open the polymerized gsd file's trajectory (list of frames)
     trajectory = gsd.hoomd.open(input_file)
 
-    frame = trajectory[-1]
+    # if not analyzing the final frame
+    if defect_frame != -1:
+        from scripts.conversion import get_frame_at_95_conversion
+        defect_frame = int(get_frame_at_95_conversion(job_id))
+        print(defect_frame)
+
+
+    frame = trajectory[defect_frame]
     dummy_id = len(frame.bonds.types)-1
     bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
 
@@ -905,7 +912,14 @@ def defect_analysis(job_id,testing=False):
     #write the data to a file
     # Here, each line is a tuple of the form (loop_size, count), with header lines 
     # indicating the type of loop data to follow until the next header
-    with open(jdir + "/loop_counts.txt", "w") as f:
+
+    # if not analyzing the final frame
+    if defect_frame != -1:
+        file_name = jdir + "/loop_counts_conversion95.txt"
+    else:
+        file_name = jdir + "/loop_counts.txt"
+
+    with open(file_name, "w") as f:
         f.write("dangling_strand data\n")
         for x in dangling_end_data:
             line = str(x[0]) + " " + str(x[1]) + "\n"
@@ -1334,36 +1348,42 @@ def strand_lengths_analysis(job_id):
     with open(jdir + "/crosslink_density_1.txt", "w") as f:
         f.write(str(crosslink_density))
 
-def calculate_crosslinking_density(job_id):
+def calculate_crosslinking_density(job_id, frame = -1):
     project = signac.get_project()
     job = project.open_job(id=job_id)
 
     polymerize_gsd = job.fn('polymerize.gsd')
     trajectory = gsd.hoomd.open(polymerize_gsd)
-    frame = trajectory[-1]
+    frame = trajectory[frame]
     box = frame.configuration.box
     volume = box[0]*box[1]*box[2]
 
     direc = project.fn('') + 'workspace/'
-    jdir = direc + job_id
-    if not os.path.exists(jdir + "/contract_bonds_analysis"):
-        os.mkdir(jdir + "/contract_bonds_analysis")
-    effective_strands = np.loadtxt(job.fn('contract_bonds_analysis/effective_strand_hist.txt'), delimiter=",")
+    if frame == -1: 
+        strand_direc = direc + job_id + "/contract_bonds_analysis/"
+    else:
+        strand_direc = direc + job_id + "/percolation_contract_bonds_analysis/"
+    effective_strands = np.loadtxt(job.fn(strand_direc + "effective_strand_hist.txt"), delimiter=",")
     total_effective = np.sum(effective_strands[:, 0])
     cld = total_effective/volume
     print(cld)
-    job.doc["crosslinking_density"] = cld
+    if frame == -1:
+        job.doc["crosslinking_density"] = cld
+    else:
+        job.doc["perc_crosslinking_density"] = cld
 
 
 
 
-def contract_bonds_analysis(job_id):
+
+def contract_bonds_analysis(job_id, file="contract_bonds.gsd"):
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
     # for job_id in os.listdir(direc):
     jdir = direc + job_id
-    input_file = direc + job_id + "/contract_bonds.gsd"
+    input_file = direc + job_id + "/" + file
+
     if not os.path.isfile(input_file):
         raise FileNotFoundError("File not found")
         exit()
@@ -1479,22 +1499,26 @@ def contract_bonds_analysis(job_id):
         output_gsd.append(out_frame)
 
     # save the data
-    if not os.path.exists(jdir + "/contract_bonds_analysis"):
-        os.mkdir(jdir + "/contract_bonds_analysis")
+    if file == "contract_bonds.gsd":
+        w_direc = jdir + "/contract_bonds_analysis/"
+    else:
+        w_direc = jdir + "/percolation_contract_bonds_analysis/"
+    if not os.path.exists(w_direc):
+        os.mkdir(w_direc)
 
-    np.savetxt(jdir + "/contract_bonds_analysis/ineffective_strand_hist.txt", \
+    np.savetxt(w_direc + "ineffective_strand_hist.txt", \
                np.vstack((ineffective_strand_hist,np.arange(len(ineffective_strand_hist)))).T, \
                 fmt='%d', delimiter=',', newline='\n')
     
-    np.savetxt(jdir + "/contract_bonds_analysis/effective_strand_hist.txt", \
+    np.savetxt(w_direc + "effective_strand_hist.txt", \
                 np.vstack((effective_strand_hist,np.arange(len(effective_strand_hist)))).T, \
                  fmt='%d', delimiter=',', newline='\n')
     
-    with open(jdir + "/contract_bonds_analysis/overall.txt", "w") as f:
+    with open(w_direc + "overall.txt", "w") as f:
         f.write("n_effective_particles\tn_ineffective_particles\n")
         f.write(f"{len(gel_G.nodes())-len(ineffective_particles)}\t{len(ineffective_particles)}\n")
 
-def scanlan_case_analysis_on_contract_bonds(job_id):
+def scanlan_case_analysis_on_contract_bonds(job_id, file="contract_bonds.gsd"):
     """
     Analyze the contract_bonds.gsd file to find the effective network from the 
     perspective of the crosslinks and scanlan case criterion.
@@ -1515,7 +1539,7 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
 
     # for job_id in os.listdir(direc):
     jdir = direc + job_id
-    input_file = direc + job_id + "/contract_bonds.gsd"
+    input_file = direc + job_id + "/" + file
     if not os.path.isfile(input_file):
         raise FileNotFoundError("File not found")
         exit()
@@ -1620,7 +1644,12 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
     print("average functionality of effective crosslinks:",np.average(functionalities))
 
     # save the data
-    with open(jdir + "/contract_bonds_analysis/scanlan_case_analysis.txt", "w") as f:
+    if file == "contract_bonds.gsd":
+        w_direc = jdir + "/contract_bonds_analysis/"
+    else:
+        w_direc = jdir + "/percolation_contract_bonds_analysis/"
+    # save the data
+    with open(w_direc + "/scanlan_case_analysis.txt", "w") as f:
         f.write("n_crosslinkers\tn_effective_crosslinkers\tn_bridging_crosslinkers\tn_ineffective_crosslinkers\tavg_effective_Functionality\n")
         f.write(f"{len(crosslink_beads)}\t{len(effective_crosslinks)}\t{len(bridging_crosslinks)}\t{len(ineffective_crosslinks)}\t{np.average(functionalities)}\n")
 
@@ -1633,7 +1662,7 @@ def scanlan_case_analysis_on_contract_bonds(job_id):
     # })
 
     # save the data to a txt file
-    with open(jdir + "/contract_bonds_analysis/crosslink_properties.txt", "w") as f:
+    with open(w_direc + "/crosslink_properties.txt", "w") as f:
         f.write("crosslink_id\ttype\teffective_functionality\tscanlan_classification\n")
         for i in range(len(crosslink_beads)):
             f.write(f"{crosslink_beads[i]}\t{pd_types[i]}\t{pd_effective_functionalities[i]}\t{pd_scanlan_classifications[i]}\n")

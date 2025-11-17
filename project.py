@@ -352,5 +352,90 @@ def diffusion_analysis(job):
     analyzer.calculate_diffusion_length_at_delta_timestep(timesteps=job.sp['polymerize_period'])
     print('analyzed diffusion: ',job.id)
 
+'''
+assess percolated frame
+'''
+
+@MyProject.label
+def percolation_analyzed(job):
+    job.isfile("percolation_data.txt")
+
+@MyProject.label
+def percolation_frame_recorded(job):
+    try:
+        return job.doc['percolation_frame'] > 0
+    except KeyError:
+        return False
+
+@MyProject.pre(diffused)
+@MyProject.post(percolation_frame_recorded)
+@MyProject.operation
+def get_percolation_frame(job):
+    import scripts.conversion
+    scripts.conversion.get_percolation_frame(job.id)
+
+@MyProject.label
+def percolation_contracted_bonds(job):
+    return job.isfile("percolation_contract_bonds.gsd")
+
+@MyProject.label
+def percolation_contracted_bonds_analyzed(job):
+    if job.sp['crosslinker_percent'] == 0 and job.sp['chain_side_reaction_probability'] == 0:
+        return True
+    else: 
+        return job.isfile('percolation_contract_bonds_analysis/effective_strand_hist.txt') and \
+        job.isfile('percolation_contract_bonds_analysis/ineffective_strand_hist.txt') and \
+        job.isfile('percolation_contract_bonds_analysis/overall.txt') and \
+        job.isfile('percolation_contract_bonds_analysis/scanlan_case_analysis.txt') and \
+        job.isfile('percolation_contract_bonds_analysis/crosslink_properties.txt')
+
+@MyProject.pre(percolation_frame_recorded)
+@MyProject.post(percolation_contracted_bonds)
+@MyProject.operation
+def percolation_contract_bonds(job):
+    from scripts.simulate import Simulator
+    sinit = Simulator(job, contract_frame = int(job.doc['percolation_frame']))
+    sinit.contract_bonds(contract_frame = int(job.doc['percolation_frame']))
+    print("contracted bonds of percolation frame: ",job.id)
+
+
+@MyProject.pre(percolation_contracted_bonds)
+@MyProject.post(percolation_contracted_bonds_analyzed)
+@MyProject.operation
+def percolation_contract_bonds_analysis(job):
+    import scripts.network_properties
+    # scripts.network_properties.calculate_crosslinking_density(job.id)
+    scripts.network_properties.contract_bonds_analysis(job.id, file="percolation_contract_bonds.gsd")
+    scripts.network_properties.scanlan_case_analysis_on_contract_bonds(job.id, file="percolation_contract_bonds.gsd")
+    print('analyzed contract bonds: ',job.id)
+
+
+@MyProject.label
+def percolation_crosslinking_density_calculated(job):
+    try:
+        return job.doc['perc_crosslinking_density'] >= 0.0
+    except KeyError:
+        return False
+
+@MyProject.pre(percolation_contracted_bonds_analyzed)
+@MyProject.post(percolation_crosslinking_density_calculated)
+@MyProject.operation
+def calculate_percolation_cld(job):
+    import scripts.network_properties
+    scripts.network_properties.calculate_crosslinking_density(job.id, frame=int(job.doc['percolation_frame']))
+    print('calculated cld: ',job.id)
+
+@MyProject.label
+def conv95_defect_analyzed(job):
+    return job.isfile("loop_counts_conversion95.txt")
+
+@MyProject.pre(reacted)
+@MyProject.post(conv95_defect_analyzed)
+@MyProject.operation
+def conv95_defect_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.defect_analysis(job.id, defect_frame=95)
+    print('analyzed defectivity: ',job.id)
+
 if __name__ == "__main__":
     MyProject().main()

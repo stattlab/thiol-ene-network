@@ -203,3 +203,15 @@ def get_frame_at_95_conversion(job_id):
         if data[i, 1] <= 0.95:
             return i + 1 + len(data)
     return False
+
+def get_percolation_frame(job_id):
+    # find job directory
+    project = signac.get_project()
+    job = project.open_job(id=job_id)
+    # get percolation file
+    percolation_txt = job.fn("percolation_data.txt")
+    data = np.loadtxt(percolation_txt, delimiter=' ', skiprows=1)
+    for i in data:
+        if i[1] > 2:
+            job.doc['percolation_frame'] = i[0]
+

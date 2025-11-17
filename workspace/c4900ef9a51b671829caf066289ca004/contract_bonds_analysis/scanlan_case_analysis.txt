@@ -1,2 +1,2 @@
 n_crosslinkers	n_effective_crosslinkers	n_bridging_crosslinkers	n_ineffective_crosslinkers	avg_effective_Functionality
-13366	8418	3305	1643	3.040152055119981
+13366	8424	3301	1641	3.0401234567901234

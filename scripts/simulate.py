@@ -25,7 +25,7 @@ class Status:
         return str(datetime.timedelta(seconds=self.seconds_remaining))
 
 class Simulator():
-    def __init__(self,job):
+    def __init__(self,job, contract_frame = -1):
         
         self.job = job
         self.kT = job.sp['temperature']
@@ -50,7 +50,10 @@ class Simulator():
         self.output_txt =job.fn('polymerize.txt')
         self.output_run_txt =job.fn('run.txt')
         self.run_gsd_file = job.fn('run.gsd')
-        self.contract_bonds_gsd_file = job.fn('contract_bonds.gsd')
+        if contract_frame == -1:
+            self.contract_bonds_gsd_file = job.fn('contract_bonds.gsd')
+        else: 
+            self.contract_bonds_gsd_file = job.fn('percolation_contract_bonds.gsd')
         self.diffuse_gsd_file = job.fn('diffuse.gsd')
         self.diffuse_output_txt = job.fn('diffuse.txt')
 
@@ -447,7 +450,7 @@ class Simulator():
                 #if self.job.doc["reacted_monomers"] > 0.925:
                 #    exit()
 
-    def contract_bonds(self):
+    def contract_bonds(self, contract_frame = -1):
         if "custom_action" in self.job.sp["polymerization_method"]:
             import scripts.customAction.polymerize as polymerize
 
@@ -460,7 +463,7 @@ class Simulator():
         print(self.job.sp["polymerization_method"]," is being run on ",device)
 
         sim = hoomd.Simulation(device=device, seed=1)
-        sim.create_state_from_gsd(filename=self.polymerize_gsd_file,frame=-1)
+        sim.create_state_from_gsd(filename=self.polymerize_gsd_file,frame=contract_frame)
 
         if len(sim.state.angle_types)==0:
             FJ_system=True

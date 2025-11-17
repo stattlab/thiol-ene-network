@@ -1,2 +1,2 @@
 n_crosslinkers	n_effective_crosslinkers	n_bridging_crosslinkers	n_ineffective_crosslinkers	avg_effective_Functionality
-9141	4394	3397	1350	3.004551661356395
+9141	4398	3394	1349	3.0045475216007276

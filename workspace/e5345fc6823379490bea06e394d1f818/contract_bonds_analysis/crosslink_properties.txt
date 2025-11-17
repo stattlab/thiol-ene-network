@@ -2713,7 +2713,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 15119	Tetra-S	0	ineffective
 15129	Tetra-S	2	bridging
 15134	Tetra-S	3	effective
-15139	Tetra-S	0	ineffective
+15139	Tetra-S	2	bridging
 15144	Tetra-S	3	effective
 15149	Tetra-S	2	bridging
 15159	Tetra-S	0	ineffective
@@ -13342,8 +13342,8 @@ crosslink_id	type	effective_functionality	scanlan_classification
 64762	Carbon	3	effective
 64766	Carbon	2	bridging
 64774	Carbon	2	bridging
-64777	Carbon	2	bridging
-64778	Carbon	2	bridging
+64777	Carbon	3	effective
+64778	Carbon	3	effective
 64785	Carbon	3	effective
 64786	Carbon	3	effective
 64790	Carbon	3	effective

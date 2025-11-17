@@ -8921,8 +8921,8 @@ crosslink_id	type	effective_functionality	scanlan_classification
 44886	Carbon	3	effective
 44898	Carbon	2	bridging
 44901	Carbon	3	effective
-44905	Carbon	0	ineffective
-44906	Carbon	2	bridging
+44905	Carbon	2	bridging
+44906	Carbon	3	effective
 44910	Carbon	3	effective
 44913	Carbon	3	effective
 44914	Carbon	3	effective
@@ -10054,7 +10054,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 49861	Carbon	3	effective
 49866	Carbon	3	effective
 49873	Carbon	3	effective
-49877	Carbon	0	ineffective
+49877	Carbon	2	bridging
 49878	Carbon	0	ineffective
 49885	Carbon	3	effective
 49886	Carbon	3	effective
@@ -10135,7 +10135,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 50229	Carbon	3	effective
 50234	Carbon	2	bridging
 50237	Carbon	3	effective
-50242	Carbon	2	bridging
+50242	Carbon	3	effective
 50246	Carbon	3	effective
 50253	Carbon	3	effective
 50258	Carbon	2	bridging
@@ -10569,7 +10569,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 52078	Carbon	2	bridging
 52081	Carbon	0	ineffective
 52085	Carbon	2	bridging
-52089	Carbon	2	bridging
+52089	Carbon	3	effective
 52094	Carbon	3	effective
 52097	Carbon	3	effective
 52098	Carbon	3	effective
@@ -12472,7 +12472,7 @@ crosslink_id	type	effective_functionality	scanlan_classification
 60525	Carbon	3	effective
 60526	Carbon	3	effective
 60530	Carbon	3	effective
-60537	Carbon	2	bridging
+60537	Carbon	3	effective
 60541	Carbon	3	effective
 60542	Carbon	3	effective
 60549	Carbon	2	bridging
