@@ -1313,7 +1313,12 @@ def strand_lengths_analysis(job_id, defect_frame = -1):
     print(sizes[0][0])
     gf = sizes[0][0]/total
 
-    with open(jdir + "/gel_fraction.txt", "w") as f:
+    if defect_frame == -1:
+        file = "/gel_fraction.txt"
+    else:
+        file = "/conv95_gel_fraction.txt"
+
+    with open(jdir + "/file.txt", "w") as f:
         f.write(str(gf))
 
     new_bonds = []
@@ -1356,18 +1361,18 @@ def strand_lengths_analysis(job_id, defect_frame = -1):
     with open(jdir + "/crosslink_density_1.txt", "w") as f:
         f.write(str(crosslink_density))'''
 
-def calculate_crosslinking_density(job_id, frame = -1):
+def calculate_crosslinking_density(job_id, analysis_frame = -1):
     project = signac.get_project()
     job = project.open_job(id=job_id)
 
     polymerize_gsd = job.fn('polymerize.gsd')
     trajectory = gsd.hoomd.open(polymerize_gsd)
-    frame = trajectory[frame]
+    frame = trajectory[analysis_frame]
     box = frame.configuration.box
     volume = box[0]*box[1]*box[2]
 
     direc = project.fn('') + 'workspace/'
-    if frame == -1: 
+    if analysis_frame == -1: 
         strand_direc = direc + job_id + "/contract_bonds_analysis/"
     else:
         strand_direc = direc + job_id + "/percolation_contract_bonds_analysis/"
@@ -1375,7 +1380,7 @@ def calculate_crosslinking_density(job_id, frame = -1):
     total_effective = np.sum(effective_strands[:, 0])
     cld = total_effective/volume
     print(cld)
-    if frame == -1:
+    if analysis_frame == -1:
         job.doc["crosslinking_density"] = cld
     else:
         job.doc["perc_crosslinking_density"] = cld

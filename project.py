@@ -124,7 +124,7 @@ def gelation_conversion_2(job):
 @MyProject.label
 def crosslinking_density_calculated(job):
     try:
-        return job.doc['crosslinking_density'] >= 0.0
+        return False #job.doc['crosslinking_density'] >= 0.0
     except KeyError:
         return False
     
