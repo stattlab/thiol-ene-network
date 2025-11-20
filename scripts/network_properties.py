@@ -1761,6 +1761,121 @@ def crosslinker_heterogeneity_by_VV(job_id):
     #     # calculate the distance from the center of mass to the points
     #     centrality[i] = np.sqrt()
 
+def primary_loop_types_analysis(job_id,analyzed_frame = -1):
+    """
+    Analyze the primary loops to categorize them into different types based on 
+    their formation mechanism.
+    """
+    project = signac.get_project()
+    direc = project.fn('') + 'workspace/'
+
+    # for job_id in os.listdir(direc):
+    jdir = direc + job_id
+    input_file = direc + job_id + "/polymerize.gsd"
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError("File not found")
+        exit()
+    # open the polymerized gsd file's trajectory (list of frames)
+    trajectory = gsd.hoomd.open(input_file)
+
+    # if not analyzing the final frame
+    if analyzed_frame != -1:
+        from scripts.conversion import get_frame_at_95_conversion
+        analyzed_frame = int(get_frame_at_95_conversion(job_id))
+        print(analyzed_frame)
+
+
+    frame = trajectory[analyzed_frame]
+    dummy_id = len(frame.bonds.types)-1
+    bonds = frame.bonds.group[frame.bonds.typeid!=dummy_id]
+    type_ids = frame.particles.typeid
+
+
+    Ntotal = frame.particles.N
+
+    # make a graph - each bond is an edge
+    G = nx.Graph()
+    G.add_edges_from(bonds)
+    # find all disconnected/connected sub-networks
+    # sort the list of networks by length
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+        
+    # strand lengths (in entire system. If you only want the ones in the gel, you need to look at Gcc[0] only)
+    # bonds in biggest cluster:
+    new_bonds = []
+    for each in bonds:
+        for i in each:
+            if i in Gcc[0]:
+                new_bonds.append(each)
+                continue
+    # make cluster of biggest graph
+    G2 = nx.Graph()
+    G2.add_edges_from(new_bonds)
+
+    print("calculating dangling ends")
+    dangling_end_strands = []
+    dangling_end_lengths = []
+
+    no_danglingEnds_graph, dangling_ends = remove_dangling_ends(G2)
+    # print('no_danglingEnds_graph edges', no_danglingEnds_graph.edges())
+    # print('no_danglingEnds_graph nodes', no_danglingEnds_graph.nodes())
+    dangling_end_graph = G2.copy()
+    for x in G2.nodes():
+        if x not in dangling_ends:
+            dangling_end_graph.remove_node(x)
+    # print("dangling ends:",dangling_end_graph.nodes())
+    # print("dangling end edges:",dangling_end_graph.edges())
+
+    for dangling_strand in nx.connected_components(dangling_end_graph):
+        dangling_strand = list(dangling_strand)
+        # print(dangling_strand)
+        dangling_end_strands.append(dangling_strand)
+        dangling_end_lengths.append(len(dangling_strand))
+    unique_dangling_end_lengths,count = np.unique(dangling_end_lengths,return_counts=True)
+    dangling_end_data = list(zip(unique_dangling_end_lengths,count))
+    # print(dangling_end_data)
+
+    print("calculating loops",  flush=True)
+    start = datetime.now()
+    crosslink_graph = remove_extenders(no_danglingEnds_graph)
+    # print('crosslink_graph edges', crosslink_graph.edges())
+    # print('crosslink_graph nodes', crosslink_graph.nodes())
+    print('start loop analysis:',start,  flush=True)
+    loops = list(nx.simple_cycles(crosslink_graph,length_bound=4))
+    # print("found loops",loops)
+    print('end loop analysis:',datetime.now(),  flush=True)
+    print('duration:',datetime.now()-start,  flush=True)
+    # lengths_loops = np.array([len(l) for l in loops])
+    loop_types = np.array([classify_loop_type_simple(l) for l in loops])
+    # print("loops[loop_types=='primary']:",loops[np.where(loop_types=='primary')[0]])
+    tetrathiol_primary_loops = []
+    ene_primary_loops = []
+    for loop in loops:
+        if len(loop) == 1:
+            if type_ids[loop[0]] == 6:
+                print("found primary loop of type C:", loop)
+                tetrathiol_primary_loops.append(loop)
+            elif type_ids[loop[0]] == 5:
+                print("found primary loop of type Carbon:", loop)
+                ene_primary_loops.append(loop)
+            else:
+                print("found primary loop of unknown type:",type_ids[loop[0]])
+                raise ValueError("Unknown primary loop type")
+    primary_edges, secondary_edges, tertiary_edges, quaternary_edges = categorize_loop_edges(loops, crosslink_graph)
+    primary_lengths, secondary_lengths, tertiary_lengths, quaternary_lengths = get_length_categorized_loops(primary_edges,secondary_edges,tertiary_edges,quaternary_edges)
+    # print("primary loop edges and lengths:",primary_edges[0:100], primary_lengths[0:100])
+    print("# of primary loops:",len(primary_lengths))
+    print('# of primary loops of type C', len(tetrathiol_primary_loops))
+    print('# of primary loops of type Carbon', len(ene_primary_loops))
+
+    # save the data
+    output_file_name = jdir + "/primary_loop_types.txt"
+
+    with open(output_file_name, "w") as f:
+        f.write("N_Tetrathiol_primary_loops\tN_ene_primary_loops\n")
+        line = str(len(tetrathiol_primary_loops)) + "\t" + str(len(ene_primary_loops)) + "\n"
+        f.write(line)
+    
 def main(job_id):
     xlink_rdf_analysis(job_id)
     exit()

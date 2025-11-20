@@ -157,6 +157,10 @@ def diffusion_analyzed(job):
     else:
         return True
 
+@MyProject.label
+def primary_loop_types_analyzed(job):
+    return job.isfile('primary_loop_types.txt')
+
 #-----------------------
 # Simulation operations
 #-----------------------
@@ -448,6 +452,14 @@ def conv95_strand_analysis(job):
     import scripts.network_properties
     scripts.network_properties.strand_lengths_analysis(job.id, defect_frame=95)
     print('analyzed strands: ',job.id)
+
+@MyProject.pre(reacted)
+@MyProject.post(primary_loop_types_analyzed)
+@MyProject.operation
+def primary_loop_types_analysis(job):
+    import scripts.network_properties
+    scripts.network_properties.primary_loop_types_analysis(job.id)
+    print('analyzed primary loop types: ',job.id)
 
 if __name__ == "__main__":
     MyProject().main()
