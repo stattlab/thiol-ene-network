@@ -89,7 +89,7 @@ def isolate_gel(job,input_gsd,frame_number):
 def main(job,gsd_file_path,frame_number):
     #Use LJ potential with r_cut=2.5
     feneOnly_deformation = True # If True, will not use pair potential, only FENEWCA
-    print("Using no pair deformation")
+    print("Using no pair interactions during deformation")
 
     parent_path = str(Path(gsd_file_path).parent.absolute())
 
@@ -132,14 +132,6 @@ def main(job,gsd_file_path,frame_number):
     particle_types = sim.state.particle_types
     cell = hoomd.md.nlist.Cell(buffer=0.4)
 
-    lj = hoomd.md.pair.LJ(nlist=cell)
-    lj.params[(particle_types, particle_types)] = dict(epsilon=1.0,sigma=1.0)
-    lj.r_cut[particle_types, particle_types] = 2.5
-
-    lj.params[(particle_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
-    lj.r_cut[particle_types, 'Dummy'] = 0
-    lj.mode = 'shift'
-
     fene = hoomd.md.bond.FENEWCA()
     fene.params[sim.state.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
     fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
@@ -167,14 +159,9 @@ def main(job,gsd_file_path,frame_number):
 
     integrator = hoomd.md.Integrator(dt=dt)
     
-    if feneOnly_deformation:
-        integrator.forces = [fene]
-        if FJ_system==False:
-            integrator.forces.append(cosinesq)
-    else:
-        integrator.forces = [lj,fene]
-        if FJ_system==False:
-            integrator.forces.append(cosinesq)
+    integrator.forces = [fene]
+    if FJ_system==False:
+        integrator.forces.append(cosinesq)
 
     mttk = hoomd.md.methods.thermostats.MTTK(kT=kT,tau=100*dt)
     nvt = hoomd.md.methods.ConstantVolume(filter=types_to_integrate,thermostat=mttk)
