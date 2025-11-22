@@ -60,200 +60,6 @@ class NVTCustomBoxVariant(hoomd.variant.box.BoxVariant):
             lam = (timestep - self.t_start)/self.deform_time*(self.final_lam-1) + 1 # 1 is the initial lam
         return [self.initial_box[0]*lam, self.initial_box[1]/np.sqrt(lam), self.initial_box[2]/np.sqrt(lam), 
                 self.initial_box[3], self.initial_box[4], self.initial_box[5]]
-'''
-These functions were used to run the equilibration before the deformation, but strange and
- violent temperature fluctuations were observed, so now the equilibration is done in the main function
-def run_equilibration(job,gsd_file_path, frame_number):
-    parent_path = str(Path(gsd_file_path).parent.absolute())
-
-    try:
-        device = hoomd.device.GPU()
-    except:
-        device = hoomd.device.CPU()
-
-    sim = hoomd.Simulation(device=device, seed=1)
-    sim.create_state_from_gsd(filename=gsd_file_path, frame=int(frame_number))
-
-    #-----------------------Force fields------------------------
-    particle_types = sim.state.particle_types
-    cell = hoomd.md.nlist.Cell(buffer=0.4)
-
-    lj = hoomd.md.pair.LJ(nlist=cell)
-    lj.params[(particle_types, particle_types)] = dict(epsilon=1.0,sigma=1.0)
-    lj.r_cut[particle_types, particle_types] = 2**(1/6) #2.5
-
-    lj.params[(particle_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
-    lj.r_cut[particle_types, 'Dummy'] = 0
-    lj.mode = 'shift'
-
-    fene = hoomd.md.bond.FENEWCA()
-    fene.params[sim.state.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
-    fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
-
-    if len(sim.state.angle_types)==0:
-        FJ_system=True
-    else:
-        FJ_system=False
-
-    if FJ_system==False:
-        angle_constant = job.sp['angle_constant']
-        cosinesq = hoomd.md.angle.CosineSquared()
-        cosinesq.params[sim.state.angle_types] = dict(k=angle_constant, t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
-        cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
-    #-----------------------Force fields------------------------
-    #----------------------Integration parameters-------------------------
-
-    kT = 1 # Could read, but just assuming job.sp["temperature"]
-    print(f"Could read, but assuming temperature = {kT}")
-    dt = 0.005 # Also taken from Brandon's deformation parameter scan
-    types_to_integrate =  hoomd.filter.Type(sim.state.particle_types[:-1]) # everything but "Dummy" particles
-
-    integrator = hoomd.md.Integrator(dt=dt)
-    
-    if FJ_system==False:
-        integrator.forces = [lj,fene,cosinesq]
-    else:
-        integrator.forces = [lj,fene]
-
-    mttk = hoomd.md.methods.thermostats.MTTK(kT=kT,tau=100*dt)
-    nvt = hoomd.md.methods.ConstantVolume(filter=types_to_integrate,thermostat=mttk)
-    integrator.methods = [nvt]
-
-    sim.operations.integrator = integrator
-    #------------------------Configure output---------------------------
-    logger = hoomd.logging.Logger(categories=['scalar','string'])
-    logger.add(sim, quantities=['timestep','tps'])
-
-    thermo = hoomd.md.compute.ThermodynamicQuantities(types_to_integrate)
-    sim.operations.computes.append(thermo)
-    logger.add(thermo, ['kinetic_temperature','kinetic_energy', 'potential_energy','pressure','volume'])
-    
-    box_writer_action = BoxWriter()
-    logger.add(box_writer_action, ['Lx','Ly','Lz'])
-    box_writer = hoomd.write.CustomWriter(action=box_writer_action,
-                                             trigger=hoomd.trigger.Periodic(10))
-    sim.operations.writers.append(box_writer)
-
-    log_writer = hoomd.write.Table(output=open(parent_path + '/equi_WCA.log','w'),
-                                    trigger=hoomd.trigger.Periodic(100),
-                                    logger=logger,)
-    sim.operations.writers.append(log_writer)
-
-    logger = hoomd.logging.Logger(categories=['sequence'])
-    logger.add(thermo, ['pressure_tensor'])
-    gsd_writer = hoomd.write.GSD(filename=parent_path + '/equi_WCA.gsd',
-                                    trigger=hoomd.trigger.Periodic(100000),
-                                    dynamic=['property','momentum','topology','attribute'],
-                                    mode='wb',
-                                    logger=logger)
-    sim.operations.writers.append(gsd_writer)
-
-    #--------------------------Run the simulation----------------------
-
-    sim.state.thermalize_particle_momenta(kT=kT,filter=types_to_integrate)
-
-    # Run a short equilibration
-    sim.run(1e5,write_at_start=True)
-
-    print("Equilibration done! Initial state ready for deformation.")
-    del sim
-
-def run_feneOnly_equilibration(job,gsd_file_path, frame_number):
-    parent_path = str(Path(gsd_file_path).parent.absolute())
-
-    try:
-        device = hoomd.device.GPU()
-    except:
-        device = hoomd.device.CPU()
-
-    sim = hoomd.Simulation(device=device, seed=1)
-    sim.create_state_from_gsd(filename=gsd_file_path, frame=int(frame_number))
-
-    #-----------------------Force fields------------------------
-    # particle_types = sim.state.particle_types
-    # cell = hoomd.md.nlist.Cell(buffer=0.4)
-
-    # lj = hoomd.md.pair.LJ(nlist=cell)
-    # lj.params[(particle_types, particle_types)] = dict(epsilon=1.0,sigma=1.0)
-    # lj.r_cut[particle_types, particle_types] = 2**(1/6) #2.5
-
-    # lj.params[(particle_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
-    # lj.r_cut[particle_types, 'Dummy'] = 0
-    # lj.mode = 'shift'
-
-    fene = hoomd.md.bond.FENEWCA()
-    fene.params[sim.state.bond_types] = dict(k=30,r0=1.5,epsilon=1.0, sigma=1.0, delta=0.0)
-    fene.params['Dummy'] = dict(k=0,r0=1.5,epsilon=0.0, sigma=1.0, delta=0.0)
-
-    harmonic = hoomd.md.bond.Harmonic()
-    harmonic.params[sim.state.bond_types] = dict(k=30,r0=0.97)
-    harmonic.params['Dummy'] = dict(k=0,r0=0.97)
-
-    # if len(sim.state.angle_types)==0:
-    #     FJ_system=True
-    # else:
-    #     FJ_system=False
-
-    # if FJ_system==False:
-    #     angle_constant = job.sp['angle_constant']
-    #     cosinesq = hoomd.md.angle.CosineSquared()
-    #     cosinesq.params[sim.state.angle_types] = dict(k=angle_constant, t0=np.pi*110/180)# https://www.sciencedirect.com/science/article/pii/S0032386110003642?ref=cra_js_challenge&fr=RR-1
-    #     cosinesq.params['Dummy'] = dict(k=0.0001, t0=np.pi)  # k>0 to make warning go away (should not do anything)
-    #-----------------------Force fields------------------------
-    #----------------------Integration parameters-------------------------
-
-    kT = 1 # Could read, but just assuming job.sp["temperature"]
-    print(f"Could read, but assuming temperature = {kT}")
-    dt = 0.005 # Also taken from Brandon's deformation parameter scan
-    types_to_integrate =  hoomd.filter.Type(sim.state.particle_types[:-1]) # everything but "Dummy" particles
-
-    integrator = hoomd.md.Integrator(dt=dt)
-    
-    integrator.forces = [harmonic]
-
-    mttk = hoomd.md.methods.thermostats.MTTK(kT=kT,tau=100*dt)
-    nvt = hoomd.md.methods.ConstantVolume(filter=types_to_integrate,thermostat=mttk)
-    integrator.methods = [nvt]
-
-    sim.operations.integrator = integrator
-    #------------------------Configure output---------------------------
-    logger = hoomd.logging.Logger(categories=['scalar','string'])
-    logger.add(sim, quantities=['timestep','tps'])
-
-    thermo = hoomd.md.compute.ThermodynamicQuantities(types_to_integrate)
-    sim.operations.computes.append(thermo)
-    logger.add(thermo, ['kinetic_temperature','kinetic_energy', 'potential_energy','pressure','volume'])
-    
-    box_writer_action = BoxWriter()
-    logger.add(box_writer_action, ['Lx','Ly','Lz'])
-    box_writer = hoomd.write.CustomWriter(action=box_writer_action,
-                                             trigger=hoomd.trigger.Periodic(10))
-    sim.operations.writers.append(box_writer)
-
-    log_writer = hoomd.write.Table(output=open(parent_path + '/equi_feneOnly.log','w'),
-                                    trigger=hoomd.trigger.Periodic(100),
-                                    logger=logger,)
-    sim.operations.writers.append(log_writer)
-
-    logger = hoomd.logging.Logger(categories=['sequence'])
-    logger.add(thermo, ['pressure_tensor'])
-    gsd_writer = hoomd.write.GSD(filename=parent_path + '/equi_feneOnly.gsd',
-                                    trigger=hoomd.trigger.Periodic(99999),
-                                    dynamic=['property','momentum','topology','attribute'],
-                                    mode='wb',
-                                    logger=logger)
-    sim.operations.writers.append(gsd_writer)
-
-    #--------------------------Run the simulation----------------------
-
-    sim.state.thermalize_particle_momenta(kT=kT,filter=types_to_integrate)
-
-    # Run a short equilibration
-    sim.run(1e5,write_at_start=True)
-
-    print("Equilibration done! Initial state ready for deformation.")
-    del sim
-'''
 
 def isolate_gel(job,input_gsd,frame_number):
     """
@@ -281,17 +87,9 @@ def isolate_gel(job,input_gsd,frame_number):
 
 
 def main(job,gsd_file_path,frame_number):
-    WCA_deformation = False # If False, will use LJ potential with r_cut=2.5
+    #Use LJ potential with r_cut=2.5
     feneOnly_deformation = True # If True, will not use pair potential, only FENEWCA
-    if feneOnly_deformation:
-        print("Using no pair deformation")
-        WCA_deformation = False
-    else:
-        print("Using pair deformation")
-        if WCA_deformation:
-            print("Using WCA deformation")
-        else:
-            print("Using LJ deformation")
+    print("Using no pair deformation")
 
     parent_path = str(Path(gsd_file_path).parent.absolute())
 
@@ -305,21 +103,8 @@ def main(job,gsd_file_path,frame_number):
 
     if feneOnly_deformation:
         print("No pair deformation, using FENEWCA only")
-        # run_feneOnly_equilibration(job,gsd_file_path, frame_number)
-        # sim = hoomd.Simulation(device=device, seed=1)
-        # sim.create_state_from_gsd(filename=parent_path + '/equi_feneOnly.gsd', frame=-1)
         sim = hoomd.Simulation(device=device, seed=1)
         sim.create_state_from_gsd(filename=gsd_file_path, frame=int(frame_number))
-    else:
-        if WCA_deformation:
-            run_equilibration(job,gsd_file_path, frame_number)
-            sim = hoomd.Simulation(device=device, seed=1)
-            sim.create_state_from_gsd(filename=parent_path + '/equi_WCA.gsd', frame=-1)
-        else:
-            print("Using existing gsd file for deformation")
-            # If not WCA deformation, just read the gsd file directly
-            sim = hoomd.Simulation(device=device, seed=1)
-            sim.create_state_from_gsd(filename=gsd_file_path, frame=int(frame_number))
 
     # ------------------- Box resizer -------------------
     # Parameters taken from Brandon's previous parameter scans for NPT deformation of 
@@ -349,10 +134,7 @@ def main(job,gsd_file_path,frame_number):
 
     lj = hoomd.md.pair.LJ(nlist=cell)
     lj.params[(particle_types, particle_types)] = dict(epsilon=1.0,sigma=1.0)
-    if WCA_deformation:
-        lj.r_cut[particle_types, particle_types] = 2**(1/6)
-    else:
-        lj.r_cut[particle_types, particle_types] = 2.5
+    lj.r_cut[particle_types, particle_types] = 2.5
 
     lj.params[(particle_types, 'Dummy')] = dict(epsilon=0.0,sigma=0.0)
     lj.r_cut[particle_types, 'Dummy'] = 0
