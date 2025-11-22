@@ -10,25 +10,25 @@ import matplotlib.pyplot as plt
 
 import networkx as nx
 
-"""
-Calculates the distance between two points in a periodic box.
-"""
 def dist_pbc(x1,x0,Box):
+    """
+    Calculates the distance between two points in a periodic box.
+    """
     delta = np.abs(x1 - x0)
     delta= np.where(delta > 0.5 * Box, Box - delta, delta)
     return np.sqrt(np.sum(delta**2.0))
 
-"""
-frame.bonds.group gives a np.array that is of form [[a,b],[c,d],[e,f],[a,g],...] 
-where a is bonded to b, c is bonded to d, etc.
-
-atom_bonds finds all atoms to which a given atom 'a' is bonded to
-args: frame.bonds.group
-
-returns: dictionary of atoms and the atoms they are bonded to
-{atom_no: [bonded1, bonded2, ...], ...}
-"""
 def atom_bonds(bonds):
+    """
+    frame.bonds.group gives a np.array that is of form [[a,b],[c,d],[e,f],[a,g],...] 
+    where a is bonded to b, c is bonded to d, etc.
+
+    atom_bonds finds all atoms to which a given atom 'a' is bonded to
+    args: frame.bonds.group
+
+    returns: dictionary of atoms and the atoms they are bonded to
+    {atom_no: [bonded1, bonded2, ...], ...}
+    """
     # create a default dictionary with an element returning a set if nothing in it
     neighbors = defaultdict(list) 
     # add every instance of an atom in a bond to the dictionary
@@ -40,6 +40,10 @@ def atom_bonds(bonds):
     return neighbors
 
 def draw_graph(G):
+    """
+    Draws a networkx graph G using matplotlib. Used for debugging purposes during 
+    code development.
+    """
     pos = nx.planar_layout(G)
     labels = {}    
     for node in G.nodes():
@@ -86,8 +90,11 @@ def draw_graph(G):
     plt.axis('off')
 
 def classify_loop_type_simple(cycle):
+    """
+    Classifies loop type based on number of nodes in the loop, assuming that the graph
+    has already been simplified to only include crosslinkers.
+    """
     #cycle is the list of nodes in the loop
-    #for this classification to be correct, these nodes need to only include crosslinkers
     match len(cycle):
         case 1:
             return "primary"
@@ -120,12 +127,7 @@ def snap_molecule_indices(snap):
     num_query_points = num_points = snap.particles.N
     query_point_indices = snap.bonds.group[:, 0]
     point_indices = snap.bonds.group[:, 1]
-    # print(np.shape(query_point_indices))
-    # print(np.shape(point_indices))
-    # This may fix the error of the indices not being sorted, but uncertain
-    # sorted_indices = np.argsort(query_point_indices)
-    # query_point_indices = query_point_indices[sorted_indices]
-    # point_indices = point_indices[sorted_indices]
+
     vectors = system.box.wrap(
         system.points[query_point_indices] - system.points[point_indices]
     )
@@ -254,12 +256,14 @@ def remove_extenders(in_graph):
     ''''
     Recursively removes all nodes with degree 2, replacing them with a single edge 
         connecting the two neighbors. Essentially generates a CROSSLINK-ONLY graph.
+        To contract chains of neighbouring vertices with degree 2 into one hypernode,
+        the following was referenced:
+        https://stackoverflow.com/questions/52313551/graph-reduction
     Args:
         in_graph: networkx.Graph instance
     Returns:
         out_graph: networkx.MultiGraph instance with only crosslinks
     '''
-    # out_graph = in_graph.copy().to_multigraph()
     out_graph = nx.MultiGraph()
     out_graph.add_edges_from(in_graph.edges(),weight=0)
     out_graph.add_nodes_from(in_graph.nodes(),weight=0)
@@ -334,9 +338,6 @@ def remove_dangling_ends(in_graph):
     else:
         raise ValueError("Dangling ends not removed after 10,000 iterations. Consider increasing the limit, or check for infinite recursion.")
     return new_graph, dangling_ends
-
-# To contract chains of neighbouring vertices with degree 2 into one hypernode:
-#https://stackoverflow.com/questions/52313551/graph-reduction
 
 def is_in_2D(list, element):
     """
@@ -507,8 +508,23 @@ def get_length_categorized_loops(primary_edges,secondary_edges,tertiary_edges,qu
 #---------------------------------------------------------------------------------------
 
 #Dangling end lengths do not include the beads within the gel
-#
 def defect_analysis(job_id,testing=False, defect_frame = -1):
+    """
+    Analyzes the network structure of a gel from a polymerization simulation. 
+    By default, analyzes the final frame of the polymerize.gsd file.
+
+    Args:
+        job_id: signac job id string
+        testing: bool, if True runs in testing mode with predefined data and prints more info
+        defect_frame: int, frame number to analyze, -1 for final frame
+    Returns:
+        None
+    Outcome:
+        The lengths and counts of dangling ends, and loops (primary, secondary, tertiary,
+            quaternary+) are calculated and saved in a loop_counts.txt 
+            (or loop_counts_conversion95.txt) 
+            file in the job's workspace directory.
+    """
     
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
@@ -727,6 +743,19 @@ def defect_analysis(job_id,testing=False, defect_frame = -1):
             f.write(line)
 
 def xlink_rdf_analysis(job_id):
+    """
+    Analyzes the radial distribution function (RDF) of crosslink beads in a gel from a 
+        polymerization simulation. 
+    By default, analyzes the last 4 frames of the polymerize.gsd file.
+
+    Args:
+        job_id: signac job id string
+    Returns:
+        None
+    Outcome:
+        Creates multiple *_rdf.txt files in the job's workspace directory, each containing 
+            the RDF data for a specific pair of crosslink bead types.
+    """
     print(
     '''
     This function is intended to calculate the rdf of crosslinks in the system.
@@ -735,9 +764,6 @@ def xlink_rdf_analysis(job_id):
     being formed over the course of this trajectory. This analysis may not be reliable
     enough without additional simulation.
     ''')
-    testing = True
-
-
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
@@ -777,10 +803,7 @@ def xlink_rdf_analysis(job_id):
     ene_crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) == 3]
     thiol_crosslink_beads = [x for  x in G2.nodes() if G2.degree(x) == 4]
     print("# of ene crosslinks:",len(ene_crosslink_beads))
-    # print('ene_crosslink_beads:',ene_crosslink_beads)
     print("# of thiol crosslinks:",len(thiol_crosslink_beads))
-    # print('thiol_crosslink_beads:',thiol_crosslink_beads)
-    # exit()
     crosslinks_only_traj = []
     # make the new frames
     for frame in trajectory[-5:-1]:
@@ -835,6 +858,19 @@ def xlink_rdf_analysis(job_id):
     # save the rdf data into txts
 
 def strand_lengths_analysis(job_id, defect_frame = -1):
+    """
+    Analyzes the strand lengths in the gel from a polymerization simulation. 
+    By default, analyzes the final frame of the polymerize.gsd file.
+
+    Args:
+        job_id: signac job id string
+        defect_frame: int, frame number to analyze, defaults to -1 for final frame
+    Returns:
+        None
+    Outcome:
+        Outputs the gel fraction to gel_fraction.txt (or conv95_gel_fraction.txt) and
+            strand length distribution to strand_sizes.txt (or conv95_strand_sizes.txt).
+    """
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
@@ -908,13 +944,23 @@ def strand_lengths_analysis(job_id, defect_frame = -1):
         for x in strand_count:
             line = str(x[0]) + " " + str(x[1]) + "\n"
             f.write(line)
-    
-    '''
-    crosslink_density = len(crosslink_beads)/sum([i[0]*i[1] for i in strand_count])
-    with open(jdir + "/crosslink_density_1.txt", "w") as f:
-        f.write(str(crosslink_density))'''
 
 def calculate_crosslinking_density(job_id, analysis_frame = -1):
+    """
+    Calculates the crosslinking density of the gel from a polymerization simulation. 
+    By default, analyzes the final frame of the polymerize.gsd file.
+
+    Args:
+        job_id: signac job id string
+        analysis_frame: int, frame number to analyze, defaults to -1 for final frame
+    Returns:
+        None
+    Outcome:
+        Reads the effective strand histogram from 
+        contract_bonds_analysis/effective_strand_hist.txt 
+        (or percolation_contract_bonds_analysis/effective_strand_hist.txt) and 
+        calculates the crosslinking density as total number of effective strands/volume.
+    """
     project = signac.get_project()
     job = project.open_job(id=job_id)
 
@@ -939,6 +985,21 @@ def calculate_crosslinking_density(job_id, analysis_frame = -1):
         job.doc["perc_crosslinking_density"] = cld
 
 def contract_bonds_analysis(job_id, file="contract_bonds.gsd"):
+    """
+    Analyzes the elastically effective and ineffective strands in the gel from a polymerization simulation. 
+    By default, analyzes the final frame of the contract_bonds.gsd file.
+    Args:
+        job_id: signac job id string
+        file: str, name of the gsd file to analyze, defaults to "contract_bonds.gsd"
+    Returns:
+        None
+    Outcome:
+        Outputs the effective strand length distribution to 
+            effective_strand_hist.txt and
+            ineffective_strand_hist.txt and 
+            overall.txt in the job's workspace directory, under subdirectories depending on 
+            the analyzed file name.
+    """
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
 
@@ -1085,6 +1146,11 @@ def scanlan_case_analysis_on_contract_bonds(job_id, file="contract_bonds.gsd"):
     Analyze the contract_bonds.gsd file to find the effective network from the 
     perspective of the crosslinks and scanlan case criterion.
 
+    Args:
+        job_id: signac job id string
+        file: str, name of the gsd file to analyze, defaults to "contract_bonds.gsd"
+    Returns:
+        None
     Outcome:
         Summary crosslink properties in the contract_bonds_analysis/scanlan_case_analysis.txt
         *The average functionality of the effective crosslinks does NOT include the 
@@ -1235,15 +1301,14 @@ def crosslinker_heterogeneity_by_VV(job_id):
     crosslinkers. (requires the scanlan_case_analysis_on_contract_bonds function to be 
     run first)
     
-    Output:
+    Args:
+        job_id: signac job id string
+    Returns:
+        None
+    Outcome:
         - voronoi volume distribution of all elastically effective crosslinkers
         - voronoi volume distribution of elastically effective tetrathiol crosslinkers
         - voronoi volume distribution of elastically effective ene crosslinkers
-        # These were discarded due to the complexity necessary for unknown returns
-        # - distribution of distance from center of cell to all effective crosslinkers 
-        #         ("Centrality")
-        # - distribution of distance from center of cell to effective tetrathiol crosslinkers
-        # - distribution of distance from center of cell to effective ene crosslinkers
     """
     # get the project and job
     project = signac.get_project()
@@ -1312,8 +1377,17 @@ def crosslinker_heterogeneity_by_VV(job_id):
 
 def primary_loop_types_analysis(job_id,analyzed_frame = -1):
     """
-    Analyze the primary loops to categorize them into different types based on 
-    their formation mechanism.
+    Analyze the primary loops to categorize them into different types based on the 
+        species forming the crosslink (tetrathiol or ene). 
+    By default, analyzes the final frame of the polymerize.gsd file.
+
+    Args:
+        job_id: signac job id string
+        analyzed_frame: int, frame number to analyze, defaults to -1 for final frame
+    Returns:
+        None
+    Outcome:
+        Outputs the number of primary loops of each type to primary_loop_types.txt
     """
     project = signac.get_project()
     direc = project.fn('') + 'workspace/'
