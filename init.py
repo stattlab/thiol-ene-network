@@ -29,18 +29,18 @@ def main():
         "replica_index": [0,1,2,3,4],
         "density": [0.81],
         "temperature":[1],
-        "crosslinker_percent":[50],#[0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100],
+        "crosslinker_percent":[0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100],
         "N_monomers":[10000],
         "monomer_size":[0],
         "extender_size":[0],
         "radical_percent":[1.0],
-        "chain_side_reaction_probability": [0.0,0.15],#0.0,0.5,0.6,0.9],
+        "chain_side_reaction_probability": [0.0,0.15],
         "chain_transfer_probability": [0.1],
         "thiol_reaction_probability": [1],
-        "polymerize_period": [50,500],#100
+        "polymerize_period": [100],#50,500
         "r_cut_reaction":[1.1],
         "angle_constant":[100],#[10,100],
-        "polymerization_method":["cpu_local_snapshot"],
+        "polymerization_method":["cpu_local_snapshot"],#['cpu_local_snapshot','custom_action_GPU','custom_action_CPU']
         }
 
     for sp in grid(statepoint_grid):
