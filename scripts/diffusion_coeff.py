@@ -1,3 +1,7 @@
+# Diffusion Coefficient Calculation Script
+# This script calculates the Mean Squared Displacement (MSD) and diffusion coefficients
+# for dithiols, dienes, and tetrathiols from a diffusion trajectory file.
+
 import gsd.hoomd
 import numpy as np
 from datetime import datetime
@@ -37,6 +41,18 @@ class DiffusionAnalyzer():
             import scripts.customAction.polymerize as polymerize
 
     def calculate_MSD(self):
+        """
+        Calculates the Mean Squared Displacement (MSD) for dithiols, dienes, and 
+        tetrathiols from the diffusion trajectory file.
+
+        The diffusion trajectory is expected to be in 'diffuse.gsd' file within the job 
+        directory, and is produced by running the diffusion simulation.
+
+        The results are saved in three separate text files:
+        - 'MSD_dithiol.txt'
+        - 'MSD_diene.txt'
+        - 'MSD_tetrathiol.txt'
+        """
         print("starting MSD analysis on job: ",self.job,flush=True)
         traj = gsd.hoomd.open(self.job.fn('diffuse.gsd'),mode='r')
         timestep = traj[0].configuration.step
@@ -139,6 +155,13 @@ class DiffusionAnalyzer():
         print("MSD analysis done in ",datetime.now()-start_time,flush=True)
 
     def calculate_diffusion_coeff(self):
+        """
+        Calculates the diffusion coefficients for dithiols, dienes, and 
+        tetrathiols based on the MSD data output from self.calculate_MSD().
+
+        The diffusion coefficients are saved in 'diffusion_coeff.txt' file within the 
+        job directory.
+        """
         # read the MSD data
         MSD_dithiol = np.loadtxt(self.job.fn('MSD_dithiol.txt'), skiprows=1)
         MSD_diene = np.loadtxt(self.job.fn('MSD_diene.txt'), skiprows=1)
@@ -163,8 +186,12 @@ class DiffusionAnalyzer():
         # save the diffusion coefficients
         np.savetxt(self.job.fn('diffusion_coeff.txt'), np.c_[D_dithiol, D_diene, D_tetrathiol], header="D_dithiol, D_diene, D_tetrathiol", fmt='%f')
 
-# from azobenzene project
 def calc_MSD(positions, ref_positions):
+    """
+    Calculates the Mean Squared Displacement (MSD) between two sets of positions.
+    Assumes that both position arrays are of the same length, and that the row indices
+    correspond to the same particles.
+    """
     sqDistSum = 0
     for i,particle_pos in enumerate(positions):
         vec = positions[i] - ref_positions[i]
