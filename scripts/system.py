@@ -8,7 +8,7 @@ class System:
     def __init__(self):
         ## define chemical tags ----
         self.particles_types = ['Thiol','Ene_C','RSulfur','RCarbon', 'Sulfur', 'Carbon','C','D','Dummy']
-        ## ---------------      [  0  , 1  ,     2     ,  3 ,     4     ,   5]
+        ## ---------------      [  0  ,     1  ,     2   ,  3      ,     4   ,    5    , 6,, 7,   8   ]
         self.bond_types = ['-SH','New','CC_Double','-S-','CC_Single','Dummy']
         self.angle_types = ['PE','Dummy']
 
@@ -52,7 +52,10 @@ class System:
     1. Spaced:
     2. Unspaced:
 
-    Systems can also be FJ or not, determining whether angles are present
+    All systems in the paper are unspaced
+
+    Systems can also be Freely Jointed (FJ) or not, determining whether angles are 
+    present
     '''
     def create_initial_configuration(self,density,crosslinker,N_monomers, monomer_size=0, extender_size=0):
         # if the system is not the unspaced system, add extenders and change the monomer size
@@ -88,7 +91,8 @@ class System:
         print("Box length = %1.2f"%(self.L))
         print("total particles = %d"%(self.N_particles))
         print("number density = %1.3f"%(self.N_particles/(self.L**3)))
-        # self.N_dummy_bonds = int(np.round(1.1*self.N_particles))
+        # slightly more dummy bonds than reactive beads. New bonds cannot be made during
+        #  reaction, so dummy bonds are place-holders to be replaced when reactions occur
         self.N_dummy_bonds = int(np.round(reactive_beads*1.05))
         self.N_dummy_angles = self.N_dummy_bonds*3
 
@@ -132,8 +136,7 @@ class System:
                     all_bonds_types.append(0)
                 for a in one_set_angles:
                     all_angles.append(a+self.size_crosslinker*i)
-                # for a in one_set_angles:
-                #     all_angles_types.append(0)
+
         ## unspaced system
         else: 
             one_set_types = np.array([self.thiol_type,
@@ -200,8 +203,7 @@ class System:
                 if self.FJ_system == False:
                     for a in one_set_angles:
                         all_angles.append(a+self.size_extender*i+N_current)
-                    # for a in one_set_angles:
-                    #     all_angles_types.append(0)
+
         ## unspaced system
         else: 
             one_set_types= [self.thiol_type,self.thiol_type]
@@ -270,8 +272,7 @@ class System:
                 if self.FJ_system == False:
                     for a in one_set_angles:
                         all_angles.append(a+self.size_monomer*i+N_current)
-                # for a in one_set_angles:
-                #     all_angles_types.append(0)
+
         else: 
             # types of atoms in the order they appear in line
             one_set_types= [self.ene_type,self.ene_type,self.ene_type,self.ene_type]
@@ -363,7 +364,6 @@ class System:
     initiate the initial radicals on the thiols in the system 
     '''
     def flip_radicals_on(self,snapshot,radical_number_percent):
-        # TODO: do we need to ensure only one thiol per monomer is selected or can both ends be reactive?
         '''
         # for only chain growth: starting with carbon radicals
         
@@ -472,10 +472,10 @@ class System:
                         # if not FJ_system then include angles
                         if self.FJ_system == False: 
                             U = np.where(snapshot.angles.typeid==self.dummy_type_angle)[0][0]
-                            # good
+                            # 
                             snapshot.angles.group[U]=[bonds_on_b[0],b,a]  # angle 
                             snapshot.angles.typeid[U]=0
-                            # good
+                            # 
                             snapshot.angles.group[U+1]=[bonds_on_a[0],a,b] #angle 
                             snapshot.angles.typeid[U+1]=0
 
@@ -498,7 +498,6 @@ class System:
                         particle_ids[a]=self.sulfur
                         particle_ids[b]=self.carbon
                         particle_ids[bonds_on_b[0]]=self.radical_carbon
-                        #flipping_rads.append(bonds_on_b[0])
                         actual_ids = np.vstack([i if i[1]!=b else [None,None] for i in actual_ids])
                     
     
@@ -644,20 +643,8 @@ class System:
                                 snapshot.angles.typeid[U+n_angles_added]=0
                                 n_angles_added += 1
 
-                            '''
-                            snapshot.angles.group[U]=[bonds_on_b[0],b,a]  # angle 
-                            snapshot.angles.typeid[U]=1
-                           
-                            snapshot.angles.group[U+1]=[bonds_on_a[0],a,b] #angle 
-                            snapshot.angles.typeid[U+1]=1
-                            '''
-
                         
                         # flip types of bonds 
-                        ''' unnecessary?
-                        snapshot.bonds.typeid[snapshot.bonds.group[:,0]==a]=4
-                        snapshot.bonds.typeid[snapshot.bonds.group[:,1]==a]=4
-                        '''
                         snapshot.bonds.typeid[snapshot.bonds.group[:,0]==b]=4
                         snapshot.bonds.typeid[snapshot.bonds.group[:,1]==b]=4
 
@@ -677,88 +664,17 @@ class System:
 
                         # remove the reacted ones as candidate possibilities from the other radicals
                         actual_ids = np.vstack([i if i[1]!=b else [None,None] for i in actual_ids])
-    '''
-    '''
-    def termination_reactions(self,snapshot,box,positions,particle_ids,ids,idx):    
-
-        # radical- radical reaction 
-        # TODO: does it matter where the thiol group is? i.e. its bonding state? 
-        radicals_positions = positions[(particle_ids==self.radical_thiol) | (particle_ids==self.radical_carbon)]
-        radicals_ids = ids[(particle_ids==self.radical_thiol) | (particle_ids==self.radical_carbon)]
-
-        if len(radicals_ids)>0:
-            aq = freud.locality.AABBQuery(box, radicals_positions)
-            nlist = aq.query(radicals_positions, {'r_max': self.rcut_neigh, 'exclude_ii':True}).toNeighborList()
-            all_pairs = nlist[:]
-
-            actual_ids_polymers = radicals_ids[all_pairs[:,0]]
-            actual_ids_radicals = radicals_ids[all_pairs[:,1]]
-            actual_ids = np.vstack((actual_ids_radicals,actual_ids_polymers)).T
-            # sorting and making it unique to not make same bonds again 
-            actual_ids = np.sort(actual_ids,axis=1)
-            actual_ids = np.unique(actual_ids,axis=0)
-            
-
-            for a in np.unique(actual_ids[:,0]):
-
-                neigh_a = actual_ids[actual_ids[:,0]==a][:,1]
-
-                if len(neigh_a)>0:
-                    b = np.random.choice(neigh_a)  
-                   
-                    bonds_on_b_1 = snapshot.bonds.group[snapshot.bonds.group[:,0]==b]
-                    bonds_on_b_2 = snapshot.bonds.group[snapshot.bonds.group[:,1]==b]
-                    bonds_on_b = np.unique(np.vstack((bonds_on_b_1,bonds_on_b_2)).flatten())
-                    bonds_on_b = bonds_on_b[bonds_on_b!=b]
-
-                    bonds_on_a_1 = snapshot.bonds.group[snapshot.bonds.group[:,0]==a]
-                    bonds_on_a_2 = snapshot.bonds.group[snapshot.bonds.group[:,1]==a]
-                    bonds_on_a = np.unique(np.vstack((bonds_on_a_1,bonds_on_a_2)).flatten())
-                    bonds_on_a = bonds_on_a[bonds_on_a!=a]
-                    
-                    if self.FJ_system == False: 
-                        U = np.where(snapshot.angles.typeid==self.dummy_type_angle)[0][0]
-                        # good
-                        snapshot.angles.group[U]=[bonds_on_b[0],b,a]  # angle 
-                        snapshot.angles.typeid[U]=0
-                        # good
-                        snapshot.angles.group[U+1]=[bonds_on_a[0],a,b] #angle 
-                        snapshot.angles.typeid[U+1]=0
-
-                    # good 
-                    U = np.where(snapshot.bonds.typeid==self.dummy_type_bond)[0][0]
-                    snapshot.bonds.group[U]=[a,b]  # propagation 
-                    snapshot.bonds.typeid[U]=1
-
-                    print("radical anhiliation!")
-                    print(a,b)
-                    print(particle_ids[a],particle_ids[b])
-
-                    # radicals anhiliate each other - both flip back
-                    if  snapshot.particles.typeid[idx[a]]==self.radical_thiol:
-                        snapshot.particles.typeid[idx[a]]=self.thiol_type  
-                        particle_ids[a]=self.thiol_type
-
-                    if  snapshot.particles.typeid[idx[b]]==self.radical_thiol:
-                        snapshot.particles.typeid[idx[b]]=self.thiol_type   
-                        particle_ids[b]=self.thiol_type 
-
-                    if  snapshot.particles.typeid[idx[a]]==self.radical_carbon:
-                        snapshot.particles.typeid[idx[a]]=self.ene_type  
-                        particle_ids[a]=self.ene_type
-                        
-                    if  snapshot.particles.typeid[idx[b]]==self.radical_carbon:
-                        snapshot.particles.typeid[idx[b]]=self.ene_type   
-                        particle_ids[b]=self.ene_type 
-
-                    print(particle_ids[a],particle_ids[b])
-    '''
-    '''
+    
     def propagate_reaction(self,
                            snapshot,r_cut=1.1,
                            chain_transfer_probability=1.0,
                            chain_side_reaction_probability=0.0,
                            thiol_reaction_probability=1.0):
+        '''
+        Executes the MC-inspired reaction steps for the System in a random order.
+        args: self, snapshot, r_cut, chain_transfer_probability, 
+        chain_side_reaction_probability, thiol_reaction_probability
+        '''
         self.chain_transfer_probability=chain_transfer_probability
         self.chain_side_reaction_probability=chain_side_reaction_probability
         self.thiol_reaction_probability = thiol_reaction_probability 
@@ -772,51 +688,28 @@ class System:
 
         positions = snapshot.particles.position[idx]
 
-        # init_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-
         choices = ['propagation','chain_transfer','chain_growth']
         while len(choices) > 0:
             reaction = np.random.choice(choices)
             match reaction:
                 case 'propagation':
                     # radical radical_thiol with Ene = Propagation/bond formation step 
-                    rc_0 = ids[particle_ids==self.radical_carbon]
-                    rt_0 = ids[particle_ids==self.radical_thiol]
                     self.bond_formation(snapshot,box,positions,particle_ids,ids,idx)
                     choices.remove('propagation')
                 case 'chain_transfer':
                     # reaction radical_carbon with Thiol  - chain transfer step
                     self.chain_transfer(snapshot,box,positions,particle_ids,ids,idx)
-                    ct_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-
-                    rc_ct = ids[particle_ids==self.radical_carbon]
-                    rt_ct = ids[particle_ids==self.radical_thiol]
                     choices.remove('chain_transfer')
                 case 'chain_growth':
                     #  competing chain growth radical carbond with ene reaction 
                     self.chain_growth(snapshot,box,positions,particle_ids,ids,idx)
-                    cg_radical_num = len(ids[particle_ids==self.radical_carbon]) + len(ids[particle_ids==self.radical_thiol])
-                    c_cg = ids[particle_ids==self.radical_carbon]
-                    rt_cg = ids[particle_ids==self.radical_thiol]
-                    # if (cg_radical_num < ct_radical_num):
-                    #     print("chain growth error! initial radicals: " + str(init_radical_num) + ", fin radicals: " + str(cg_radical_num))
-                    #     print("rc b4 : " + str(rc_ct) + "rt b4 : " + str(rt_ct))
-                    #     print("rc : " + str(rc_cg) + "rt : " + str(rt_cg))
-                    #     print("ct")
-                    #     print("ct")
-                    #     print("ct")
                     choices.remove('chain_growth')
                 case _:
                     print("Error in propagate_reactions. Unknown reaction requested")
 
-        # termination reactions, i.e radical-radical interactions 
-        # self.termination_reactions(snapshot,box,positions,particle_ids,ids,idx)
-
-
     def sample_spherical(self,npoints, ndim=3):
         """
         Draw npoints random numbers on a sphere in ndim. 
-
         """
         vec = np.random.randn(ndim, npoints)
         vec /= np.linalg.norm(vec, axis=0)
@@ -835,7 +728,6 @@ class System:
         linear polymers with consecutive bonds (0-1-2-3-4-5, 6-7-8-9-10,..)
         and non consecutive ids ( 0-5-6-8-10, 1-4-3-2-9,...) but no other
         configuration yet. Works with ints as well as str.
-
         """
         neighbors = defaultdict(set)
         seen = set()
