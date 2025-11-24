@@ -7,9 +7,6 @@ import gsd, gsd.hoomd
 
 import networkx as nx
 
-#HI!!!! I think it likes me this time!
-
-
 def calc_weightAvgMw(G_list):
     num = 0
     denom = 0
@@ -29,8 +26,10 @@ def calc_weightAvgMw(G_list):
 # Calculates the reduced weight-average molecular weight of the system. This is the
 # weight-avg Mw excluding the largest molecule.
 def gelation_analysis_via_reducedMw(job_id):
-    #testing = True
-
+    """
+    Writes the gelation conversion based on the peak in reduced weight-average molecular
+    weight to the job document as 'gelation_conversion_2_2'.
+    """
     project = signac.get_project()
     job = project.open_job(id=job_id)
     traj = gsd.hoomd.open(job.fn('polymerize.gsd'))
@@ -57,22 +56,17 @@ def gelation_analysis_via_reducedMw(job_id):
     max_idx = np.argmax(reduced_Mws)
     max_conv = conversions[max_idx]
     print("Conversion at reduced weight-averaged Mw peak:",max_conv)
-    '''
-    if testing:
-        ax, fig = plt.subplots()
-        plt.plot(conversions, second_largest_cluster_sizes)
-        plt.xlabel("Conversion")
-        plt.ylabel("Size of 2nd Largest Cluster")
-        plt.title("Conversion vs. Size of 2nd Largest Cluster")
-        plt.show()
-    '''
+
     job.doc['gelation_conversion_2_2'] = (max_conv, max_idx)
 
     return max_conv
 
 
 def gelation_analysis_via_2ndLargest(job_id):
-    #testing = True
+    """
+    Writes the gelation conversion based on the drop in size of the 2nd largest cluster
+    to the job document as 'gelation_conversion_2'.
+    """
 
     project = signac.get_project()
     job = project.open_job(id=job_id)
@@ -100,15 +94,7 @@ def gelation_analysis_via_2ndLargest(job_id):
     max_diff_idx = np.argmax(diff)
     max_diff_conv = conversions[max_diff_idx]
     print("Conversion at 2nd largest cluster size drop:",max_diff_conv)
-    '''
-    if testing:
-        ax, fig = plt.subplots()
-        plt.plot(conversions, second_largest_cluster_sizes)
-        plt.xlabel("Conversion")
-        plt.ylabel("Size of 2nd Largest Cluster")
-        plt.title("Conversion vs. Size of 2nd Largest Cluster")
-        plt.show()
-    '''
+
     job.doc['gelation_conversion_2'] = (max_diff_conv, max_diff_idx)
 
     return max_diff_conv
