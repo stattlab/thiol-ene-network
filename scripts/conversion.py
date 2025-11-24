@@ -4,7 +4,38 @@ import signac
 import json
 import gsd, gsd.hoomd 
 from collections import defaultdict, Counter
-from scripts.extract import connected_components
+
+"""
+merges lists with common elements
+
+args: bonds from configuration (frame.bonds.group)
+
+returns: list of connected particles by id
+
+Useful for finding bonded particles in a configuration, tested for
+linear polymers with consecutive bonds (0-1-2-3-4-5, 6-7-8-9-10,..)
+and non consecutive ids ( 0-5-6-8-10, 1-4-3-2-9,...) but no other
+configuration yet. Works with ints as well as str.
+
+"""
+def connected_components(lists):
+    
+    neighbors = defaultdict(set)
+    seen = set()
+    for each in lists:
+        for item in each:
+            neighbors[item].update(each)
+    def component(node, neighbors=neighbors, seen=seen, see=seen.add):
+        nodes = set([node])
+        next_node = nodes.pop
+        while nodes:
+            node = next_node()
+            see(node)
+            nodes |= neighbors[node] - seen
+            yield node
+    for node in neighbors:
+        if node not in seen:
+            yield sorted(component(node))
 
 '''
 VIA GSD.HOOMD

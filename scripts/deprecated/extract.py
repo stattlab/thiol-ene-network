@@ -61,9 +61,13 @@ def connected_components(lists):
         if node not in seen:
             yield sorted(component(node))
 
-### a-b-c
+### a---b
 ###  \ /
-###   V
+###   c
+"""
+Counts and identifies cyclopropyl groups in the system
+args: bonds from configuration (frame.bonds.group)
+"""
 def cyclopropyl_groups(a_bonds):
     cyclopropyl_count = 0
     # get keys for atoms with more than one bond
