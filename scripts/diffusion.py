@@ -1,3 +1,7 @@
+# Diffusion Analysis Script
+# This script calculates the diffusion lengths of monomer species during the diffusion
+# simulation.
+
 import gsd.hoomd
 import numpy as np
 from datetime import datetime
@@ -182,6 +186,14 @@ class DiffusionAnalyzer():
         np.savetxt(self.job.fn('diffusion_coeff.txt'), np.c_[D_dithiol, D_diene, D_tetrathiol], header="D_dithiol, D_diene, D_tetrathiol", fmt='%f')
     '''
     def calculate_diffusion_length_at_delta_timestep(self, timesteps):
+        """
+        Calculates the average diffusion length for dithiols, dienes, and tetrathiols
+        over the given time interval specified by timesteps. This is done by computing
+        the Mean Squared Displacement (MSD) during the diffusion simulation.
+
+        The diffusion lengths are saved in 'diffusion_length.txt' file within the
+        job directory.
+        """
         print("starting MSD analysis on job: ",self.job, f"at {timesteps} timesteps",flush=True)
         traj = gsd.hoomd.open(self.job.fn('diffuse.gsd'),mode='r')
         timestep = traj[0].configuration.step
@@ -297,6 +309,11 @@ class DiffusionAnalyzer():
 
 # from azobenzene project
 def calc_MSD(positions, ref_positions):
+    """
+    Calculates the Mean Squared Displacement (MSD) between two sets of positions.
+    Assumes that both position arrays are of the same length, and that the row indices
+    correspond to the same particles.
+    """
     sqDistSum = 0
     for i,particle_pos in enumerate(positions):
         vec = positions[i] - ref_positions[i]

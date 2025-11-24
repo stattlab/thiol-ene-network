@@ -1,6 +1,8 @@
 # Diffusion Coefficient Calculation Script
 # This script calculates the Mean Squared Displacement (MSD) and diffusion coefficients
 # for dithiols, dienes, and tetrathiols from a diffusion trajectory file.
+# Largely deprecates, since none of this data is used in the paper, but was necessary 
+# for checking
 
 import gsd.hoomd
 import numpy as np

@@ -347,12 +347,15 @@ def vv_analysis(job):
 def diffusion_analysis(job):
     from scripts.diffusion import DiffusionAnalyzer
     analyzer = DiffusionAnalyzer(job, dt=0.005)
-    # if not job.isfile('MSD.txt'):
-    #     print('MSD.txt does not exist, calculating MSD')
-    #     analyzer.calculate_MSD()
-    # else:
-    #     print('MSD.txt already exists, skipping MSD calculation')
-    # analyzer.calculate_diffusion_coeff()
+    # The below analysis was deprecated since it was not used in the paper
+    '''
+    if not job.isfile('MSD.txt'):
+        print('MSD.txt does not exist, calculating MSD')
+        analyzer.calculate_MSD()
+    else:
+        print('MSD.txt already exists, skipping MSD calculation')
+    analyzer.calculate_diffusion_coeff()
+    '''
     analyzer.calculate_diffusion_length_at_delta_timestep(timesteps=job.sp['polymerize_period'])
     print('analyzed diffusion: ',job.id)
 
