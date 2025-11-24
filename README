@@ -1,67 +1,10 @@
-TODO
-----
-- cluster account 
-- make github project 
-
-- double check reactions 
-- double check that radicals don't disappear 
-
-- add analysis code 
-
-
 Software requirements  
 -----------------
 modules:  anaconda/3 
 conda: python 3.10, numpy, scipy, freud, networkx, omnia::eigen3, pybind11, hoomd 4.0.1, gsd 2.X, signac 2.X, signac-flow
-(all installed on cluster in conda environment /projects/statt/software/conda/hoomd)
-
-On cluster:
-module load /projects/statt/modulefiles/hoomd/4.0.1 
-conda activate /projects/statt/software/conda/hoomd 
-
-Local: 
-install everything except hoomd, omnia::eigen3, pybind11 (no local simulations can be run, but they can be analyzed)
-install ovito 
 
 also needed: matplotib etc. the usual
 for pretty graph visualization: netgraph grst::rectangle-packer
-
-
-Chemistry parameters
-----------
-
-monomer size = 2,3,4 
-extender size = 3,4,5 
-(no checks implemented, can be longer in principle. Middle chain types need to be double checked)
-
-If you put both sizes to 0, the system falls back to a "default" simple system with 
-dumbells for monomer and extender, and a crosslinker with 5 beads, 4 reactive ends bonded to one central particle. 
-In this case there are no angles.  
-
-
-Physical parameters
-----------
-
-I used: https://www.sciencedirect.com/science/article/pii/S0032386123004433 to decide on 
-an angle with stiffness 5, which should lead to a T_m of ~ 1kT, and then we simulate at 0.9kT 
-i.e below the melting temperature at a density of 0.9 (read off fig. 2). The NpT ensemble 
-simulation should allow for adjustments of this density as the system evolves. 
-We use a different angle bending potential (because of what is available in hoomd 
-but it should not matter). 
-
-Signac allows for these parameters to be varied. 
-
-Simple system of dumbell-monomers will not crystallize. 
-
-Performance notes 
------------------
-
-This code is not very efficient!! It slows down with the number of bonds and angles. And, to a 
-lesser degree, number of particles. Keep number of bonds below 1e4 (i.e N_monomers<4000) but
-smaller is better for performance. If the system is larger than this, some GPUs will run out of 
-memory (T4 and A10) and crash.  (error message is something like this: "slurmstepd: error: Detected 
-1 oom-kill event(s) in StepId=10606636.batch. Some of your processes may have been killed by the 
-cgroup out-of-memory handler." You will also see files "core.XXXX" appear.)
 
 
 Run instructions
@@ -76,12 +19,3 @@ python project.py status
 to run locally 
 python project.py run -o equilibrate (-n 1)
 python project.py run -o polymerize -n 1 -j 7f0fd52c32da20cd80a98cc394647ab8 
-
-to run on cluster: 
-ssh statt@cc-login.campuscluster.illinois.edu
-
-other cluster things:
-sinfo 
-squeue -u statt 
-
-python project.py run -o polymerize -n 1 -j  0850ee96d8b53dc677a179fe581d5d06
